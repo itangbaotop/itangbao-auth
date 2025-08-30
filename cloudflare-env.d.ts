@@ -7,7 +7,10 @@ declare namespace Cloudflare {
 		ASSETS: Fetcher;
 	}
 }
-interface CloudflareEnv extends Cloudflare.Env {}
+interface CloudflareEnv extends Cloudflare.Env {
+    DB: D1Database;
+    AUTH_SECRET: string;
+}
 
 // Begin runtime types
 /*! *****************************************************************************
