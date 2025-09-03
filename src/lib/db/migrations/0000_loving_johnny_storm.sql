@@ -44,6 +44,23 @@ CREATE TABLE `applications` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `applications_domain_unique` ON `applications` (`domain`);--> statement-breakpoint
 CREATE UNIQUE INDEX `applications_client_id_unique` ON `applications` (`client_id`);--> statement-breakpoint
+CREATE TABLE `magic_links` (
+	`id` text PRIMARY KEY NOT NULL,
+	`email` text NOT NULL,
+	`token` text NOT NULL,
+	`expires` integer NOT NULL,
+	`used` integer DEFAULT false,
+	`created_at` integer DEFAULT CURRENT_TIMESTAMP
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `magic_links_token_unique` ON `magic_links` (`token`);--> statement-breakpoint
+CREATE TABLE `sessions` (
+	`sessionToken` text PRIMARY KEY NOT NULL,
+	`userId` text NOT NULL,
+	`expires` integer NOT NULL,
+	FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
 CREATE TABLE `user_app_authorizations` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -58,7 +75,7 @@ CREATE TABLE `user_app_authorizations` (
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`email` text NOT NULL,
-	`email_verified` integer DEFAULT false,
+	`email_verified` integer,
 	`name` text,
 	`image` text,
 	`password` text,
@@ -67,4 +84,10 @@ CREATE TABLE `users` (
 	`updated_at` integer DEFAULT CURRENT_TIMESTAMP
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
+CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
+CREATE TABLE `verificationTokens` (
+	`identifier` text NOT NULL,
+	`token` text NOT NULL,
+	`expires` integer NOT NULL,
+	PRIMARY KEY(`identifier`, `token`)
+);
