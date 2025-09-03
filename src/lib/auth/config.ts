@@ -1,4 +1,5 @@
 // src/lib/auth/config.ts
+import NextAuth from "next-auth"
 import { NextAuthConfig } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
@@ -25,8 +26,8 @@ async function verifyPassword(password: string, hashedPassword: string): Promise
   return hashedInput === hashedPassword
 }
 
+// 注意这里的改动
 export const authConfig: NextAuthConfig = {
-  adapter: D1Adapter(getDb((await getCloudflareContext({async: true})).env.DB)),
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -40,7 +41,7 @@ export const authConfig: NextAuthConfig = {
         }
 
         try {
-          const db = getDb((await getCloudflareContext({async: true})).env.DB);
+          const db = getDb(getCloudflareContext().env.DB);
           const userResult = await db.select().from(users)
             .where(eq(users.email, credentials.email as string))
             .limit(1)
@@ -92,7 +93,7 @@ export const authConfig: NextAuthConfig = {
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.sub!
-        session.user.role = token.role
+        session.user.role = token.role as string
       }
       return session
     },
@@ -109,3 +110,14 @@ export const authConfig: NextAuthConfig = {
   // 边缘环境优化
   trustHost: true
 }
+
+// 导出 auth 函数
+export const { handlers, auth, signIn, signOut } = NextAuth((request) => {
+    const context = getCloudflareContext();
+    const db = getDb(context.env.DB);
+    // 动态设置 adapter
+    return {
+        ...authConfig,
+        adapter: D1Adapter(db),
+    }
+});
