@@ -34,3 +34,11 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+todo
+- [ ] Google一键登录成功
+- [ ] app的登录和回调流程
+- [ ] 登陆页面和 资料页面 支持中英文切换
+- [ ] 增加刷新token机制
+- [ ] 增加app密钥管理

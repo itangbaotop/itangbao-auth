@@ -1,5 +1,5 @@
 
-INSERT INTO "users" (id, name, email, password, role, "email_verified", "created_at", "updated_at")
+INSERT INTO "users" (id, name, email, password, role, "emailVerified", "created_at", "updated_at")
 VALUES
 (
     'cl_admin_00001', 

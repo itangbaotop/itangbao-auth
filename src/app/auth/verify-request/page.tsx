@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 export default function VerifyRequestPage() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
+  const appId = searchParams.get('appId');
+  const redirectUri = searchParams.get('redirectUri');
 
   useEffect(() => {
     const emailParam = searchParams.get("email");
@@ -106,7 +108,8 @@ export default function VerifyRequestPage() {
             {/* 返回按钮 */}
             <div className="pt-4">
               <a
-                href="/auth/signin"
+                // 返回登录页面时，带上 appId 和 redirectUri
+                href={`/auth/signin?appId=${encodeURIComponent(appId || '')}&redirectUri=${encodeURIComponent(redirectUri || '')}`}
                 className="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-xl shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
               >
                 ← 返回登录页面

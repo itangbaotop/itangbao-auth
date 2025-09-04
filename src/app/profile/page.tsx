@@ -1,382 +1,318 @@
 // src/app/profile/page.tsx
-"use client";
-
-import { useEffect, useState } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { auth, signOut } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
-import { useToast } from "@/hooks/useToast";
-import { ToastContainer } from "@/components/ToastContainer";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { CalendarDays, Mail, User, LogOut, Settings, Shield, Github, Chrome, Key } from "lucide-react";
+import { getDb } from "@/lib/db";
+import { accounts } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  image?: string;
-  role: string;  // 改为 role
-  createdAt: string;
-  updatedAt: string;
+// 获取用户的登录账户信息
+async function getUserAccounts(userId: string) {
+  try {
+    const context = getCloudflareContext();
+    const db = getDb(context.env.DB);
+    
+    const userAccounts = await db.select({
+      provider: accounts.provider,
+      type: accounts.type,
+      providerAccountId: accounts.providerAccountId,
+    }).from(accounts).where(eq(accounts.userId, userId));
+    
+    return userAccounts;
+  } catch (error) {
+    console.error("Error fetching user accounts:", error);
+    return [];
+  }
 }
 
-export default function ProfilePage() {
-  const { data: session, status, update } = useSession();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const { toasts, toast, removeToast } = useToast();
-
-  // 判断是否为管理员
-  const isAdmin = profile?.role === 'admin';
-
-  useEffect(() => {
-    if (status === "loading") return;
-    if (!session) {
-      redirect("/auth/signin");
-    }
-    fetchProfile();
-  }, [session, status]);
-
-  const fetchProfile = async () => {
-    try {
-      const response = await fetch("/api/user/profile");
-      if (response.ok) {
-        const profileData = await response.json();
-        setProfile(profileData);
-        setFormData(prev => ({
-          ...prev,
-          name: profileData.name || "",
-        }));
-      } else {
-        const error = await response.json();
-        toast.error("获取用户资料失败", error.error);
-      }
-    } catch (error) {
-      toast.error("获取用户资料失败", "网络错误，请重试");
-    } finally {
-      setLoading(false);
+// 获取 provider 的显示信息
+function getProviderInfo(provider: string) {
+  const providerMap = {
+    github: {
+      name: "GitHub",
+      icon: Github,
+      color: "bg-gray-900 dark:bg-gray-700",
+      textColor: "text-white"
+    },
+    google: {
+      name: "Google",
+      icon: Chrome,
+      color: "bg-red-500",
+      textColor: "text-white"
+    },
+    email: {
+      name: "邮箱",
+      icon: Mail,
+      color: "bg-blue-500",
+      textColor: "text-white"
+    },
+    "admin-credentials": {
+      name: "管理员账户",
+      icon: Key,
+      color: "bg-purple-500",
+      textColor: "text-white"
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    // 如果要修改密码，验证密码确认
-    if (showPasswordForm) {
-      if (formData.newPassword !== formData.confirmPassword) {
-        toast.error("密码验证失败", "新密码和确认密码不匹配");
-        setSaving(false);
-        return;
-      }
-      
-      if (formData.newPassword.length < 6) {
-        toast.error("密码长度不足", "新密码长度至少6位");
-        setSaving(false);
-        return;
-      }
-    }
-
-    try {
-      const updateData: any = {
-        name: formData.name,
-      };
-
-      if (showPasswordForm && formData.newPassword) {
-        updateData.currentPassword = formData.currentPassword;
-        updateData.newPassword = formData.newPassword;
-      }
-
-      const response = await fetch("/api/user/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updateData),
-      });
-
-      if (response.ok) {
-        const updatedProfile = await response.json();
-        setProfile(updatedProfile);
-        toast.success("资料更新成功", "您的个人资料已成功更新");
-        
-        // 更新session中的用户名
-        await update({
-          name: updatedProfile.name,
-        });
-        
-        // 重置密码表单
-        if (showPasswordForm) {
-          setFormData(prev => ({
-            ...prev,
-            currentPassword: "",
-            newPassword: "",
-            confirmPassword: "",
-          }));
-          setShowPasswordForm(false);
-        }
-      } else {
-        const errorData = await response.json();
-        toast.error("更新失败", errorData.error);
-      }
-    } catch (error) {
-      toast.error("更新失败", "网络错误，请重试");
-    } finally {
-      setSaving(false);
-    }
+  
+  return providerMap[provider as keyof typeof providerMap] || {
+    name: provider,
+    icon: User,
+    color: "bg-gray-500",
+    textColor: "text-white"
   };
+}
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+export default async function ProfilePage() {
+  const session = await auth();
 
-  // 获取角色显示名称
-  const getRoleDisplayName = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return '管理员';
-      case 'user':
-        return '普通用户';
-      default:
-        return role;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">加载中...</p>
-        </div>
-      </div>
-    );
+  if (!session?.user) {
+    redirect("/auth/signin");
   }
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600">加载用户资料失败</p>
-        </div>
-      </div>
-    );
-  }
+  const { user } = session;
+  
+  // 获取用户的登录账户
+  const userAccounts = await getUserAccounts(user.id);
+
+  // 获取用户名首字母作为头像 fallback
+  const getInitials = (name: string) => {
+    return name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U";
+  };
+
+  // 格式化日期
+  const formatDate = (date: Date | string | null) => {
+    if (!date) return "未知";
+    return new Date(date).toLocaleDateString("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
-    <>
-        <div className="min-h-screen bg-gray-50">
-        {/* 导航栏 */}
-        <nav className="bg-white shadow-sm border-b">
-            <div className="max-w-4xl mx-auto px-6 py-4">
-            <div className="flex justify-between items-center">
-                <h1 className="text-lg font-semibold">个人资料</h1>
-                <div className="flex items-center gap-4">
-                {isAdmin && (
-                    <a
-                    href="/admin"
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                    管理后台
-                    </a>
-                )}
-                <button
-                    onClick={() => signOut({ callbackUrl: "/" })}
-                    className="text-red-600 hover:text-red-800 text-sm"
-                >
-                    退出登录
-                </button>
-                </div>
-            </div>
-            </div>
-        </nav>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* 页面标题 */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            个人资料
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400">
+            管理您的账户信息和偏好设置
+          </p>
+        </div>
 
-        <div className="max-w-2xl mx-auto p-6">
-            <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center mb-6">
-                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                {profile.name ? profile.name.charAt(0).toUpperCase() : profile.email.charAt(0).toUpperCase()}
-                </div>
-                <div className="ml-4">
-                <h2 className="text-xl font-semibold">{profile.name || "未设置姓名"}</h2>
-                <p className="text-gray-600">{profile.email}</p>
-                {isAdmin && (
-                    <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">
-                    {getRoleDisplayName(profile.role)}
-                    </span>
-                )}
-                </div>
-            </div>
-
-
-            {/* 消息提示 */}
-            {message && (
-                <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-                {message}
-                </div>
-            )}
-            
-            {error && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {/* 基本信息 */}
-                <div>
-                <h3 className="text-lg font-medium mb-4">基本信息</h3>
-                
-                <div className="grid gap-4">
-                    <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        姓名
-                    </label>
-                    <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="请输入姓名"
+        <div className="grid gap-6 md:grid-cols-3">
+          {/* 左侧：用户信息卡片 */}
+          <div className="md:col-span-2 space-y-6">
+            {/* 基本信息 */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
+              <CardHeader className="pb-4">
+                <div className="flex items-center space-x-4">
+                  <Avatar className="h-20 w-20 ring-4 ring-blue-100 dark:ring-blue-900">
+                    <AvatarImage 
+                      src={user.image || ""} 
+                      alt={user.name || "用户头像"}
+                      className="object-cover"
                     />
-                    </div>
-                    
-                    <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        邮箱
-                    </label>
-                    <input
-                        type="email"
-                        value={profile.email}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">邮箱地址不可修改</p>
-                    </div>
-
-                    <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        角色
-                    </label>
-                    <input
-                        type="text"
-                        value={getRoleDisplayName(profile.role)}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
-                    />
-                    </div>
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg font-semibold">
+                      {getInitials(user.name || "用户")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <CardTitle className="text-2xl text-slate-900 dark:text-slate-100 mb-1">
+                      {user.name || "未设置姓名"}
+                    </CardTitle>
+                    <CardDescription className="text-base flex items-center">
+                      <Mail className="h-4 w-4 mr-2" />
+                      {user.email}
+                    </CardDescription>
+                  </div>
                 </div>
-                </div>
-
-                {/* 密码修改部分保持不变... */}
-                <div>
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium">密码</h3>
-                    <button
-                    type="button"
-                    onClick={() => setShowPasswordForm(!showPasswordForm)}
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                    {showPasswordForm ? "取消修改密码" : "修改密码"}
-                    </button>
-                </div>
-                
-                {showPasswordForm && (
-                    <div className="grid gap-4 p-4 bg-gray-50 rounded-lg">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                        当前密码
-                        </label>
-                        <input
-                        type="password"
-                        name="currentPassword"
-                        value={formData.currentPassword}
-                        onChange={handleInputChange}
-                        required={showPasswordForm}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                        新密码
-                        </label>
-                        <input
-                        type="password"
-                        name="newPassword"
-                        value={formData.newPassword}
-                        onChange={handleInputChange}
-                        required={showPasswordForm}
-                        minLength={6}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                        确认新密码
-                        </label>
-                        <input
-                        type="password"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleInputChange}
-                        required={showPasswordForm}
-                        minLength={6}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    </div>
-                )}
-                </div>
-
+              </CardHeader>
+              
+              <CardContent className="space-y-6">
                 {/* 账户信息 */}
-                <div>
-                <h3 className="text-lg font-medium mb-4">账户信息</h3>
-                <div className="grid gap-2 text-sm text-gray-600">
-                    <div className="flex justify-between">
-                    <span>注册时间:</span>
-                    <span>{new Date(profile.createdAt).toLocaleString()}</span>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
+                      <User className="h-4 w-4 mr-2" />
+                      用户名
+                    </label>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg border">
+                      <p className="text-slate-900 dark:text-slate-100">
+                        {user.name || "未设置"}
+                      </p>
                     </div>
-                    <div className="flex justify-between">
-                    <span>最后更新:</span>
-                    <span>{new Date(profile.updatedAt).toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center">
+                      <Mail className="h-4 w-4 mr-2" />
+                      邮箱地址
+                    </label>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-700 rounded-lg border">
+                      <p className="text-slate-900 dark:text-slate-100">
+                        {user.email}
+                      </p>
                     </div>
-                    <div className="flex justify-between">
-                    <span>用户ID:</span>
-                    <span className="font-mono text-xs">{profile.id}</span>
-                    </div>
-                </div>
+                  </div>
                 </div>
 
-                {/* 提交按钮 */}
-                <div className="flex justify-end">
-                <button
+                {/* 邮箱验证状态 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    邮箱验证状态
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    {user.emailVerified ? (
+                      <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        ✓ 已验证
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                        ⚠ 未验证
+                      </Badge>
+                    )}
+                    {user.emailVerified && (
+                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                        {formatDate(user.emailVerified)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 登录方式 */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <Shield className="h-5 w-5 mr-2" />
+                  登录方式
+                </CardTitle>
+                <CardDescription>
+                  您可以使用以下方式登录此账户
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {userAccounts.length > 0 ? (
+                    userAccounts.map((account, index) => {
+                      const providerInfo = getProviderInfo(account.provider);
+                      const IconComponent = providerInfo.icon;
+                      
+                      return (
+                        <div key={index} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg border">
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-2 rounded-full ${providerInfo.color}`}>
+                              <IconComponent className={`h-4 w-4 ${providerInfo.textColor}`} />
+                            </div>
+                            <div>
+                              <p className="font-medium text-slate-900 dark:text-slate-100">
+                                {providerInfo.name}
+                              </p>
+                              <p className="text-sm text-slate-500 dark:text-slate-400">
+                                {account.type === 'oauth' ? 'OAuth 登录' : '凭据登录'}
+                                {account.providerAccountId && ` • ID: ${account.providerAccountId}`}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            已连接
+                          </Badge>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-4 text-slate-500 dark:text-slate-400">
+                      未找到登录方式信息
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 右侧：操作面板 */}
+          <div className="space-y-6">
+            {/* 快速操作 */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <Settings className="h-5 w-5 mr-2" />
+                  快速操作
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                
+                <form action={async () => {
+                  "use server";
+                  await signOut({ redirectTo: "/" });
+                }}>
+                  <Button 
                     type="submit"
-                    disabled={saving}
-                    className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {saving ? "保存中..." : "保存更改"}
-                </button>
-                </div>
-            </form>
-            </div>
-        </div>
-        </div>
+                    variant="destructive" 
+                    className="w-full justify-start"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    退出登录
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
 
-        <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
-    </>
+            {/* 账户安全 */}
+            <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center">
+                  <Shield className="h-5 w-5 mr-2" />
+                  账户安全
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-100">
+                      双因素认证
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      增强账户安全性
+                    </p>
+                  </div>
+                  <Badge variant="secondary">
+                    未启用
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-100">
+                      登录活动
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      查看最近登录记录
+                    </p>
+                  </div>
+                  <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    正常
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

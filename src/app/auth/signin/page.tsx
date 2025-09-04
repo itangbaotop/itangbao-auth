@@ -1,21 +1,158 @@
 // src/app/auth/signin/page.tsx
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { getSession, signIn } from "next-auth/react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/ToastContainer";
 import { useAuthProviders } from "@/contexts/AuthProvidersContext";
 import { useAuthConfig } from "@/hooks/useAuthConfig";
+import router from "next/router";
+
+
+// 声明 Google 的全局类型，避免 TypeScript 报错
+declare global {
+  namespace google {
+    namespace accounts {
+      namespace id {
+        function initialize(options: {
+          client_id: string;
+          callback: (response: { credential?: string; select_by?: string; }) => void;
+          auto_select?: boolean;
+          cancel_on_tap_outside?: boolean;
+          prompt_parent_id?: string;
+          itp_support?: boolean;
+          ux_mode?: string;
+        }): void;
+        function renderButton(
+          parent: HTMLElement | null,
+          options: {
+            type?: string;
+            size?: string;
+            text?: string;
+            shape?: string;
+            theme?: string;
+            locale?: string;
+            width?: string;
+            logo_alignment?: string;
+            click_listener?: () => void;
+          }
+        ): void;
+        function prompt(callback?: (notification: any) => void): void;
+      }
+    }
+  }
+}
+
+
 
 export default function SignInPage() {
   const { providers, isLoading: providersLoading, error: providersError } = useAuthProviders();
   const { config, isLoading: configLoading } = useAuthConfig();
+  const [loadingProviderId, setLoadingProviderId] = useState<string | null>(null); 
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const searchParams = useSearchParams();
   const { toasts, toast, removeToast } = useToast();
+
+  const oneTapInitialized = useRef(false);
+
+  // Google One Tap 的初始化和回调
+  useEffect(() => {
+    console.log("One Tap useEffect: Checking conditions...");
+    console.log("configLoading:", configLoading, "config?.enableGoogleLogin:", config?.enableGoogleLogin, "typeof google:", typeof google);
+    console.log("oneTapInitialized.current:", oneTapInitialized.current);
+
+    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+    if (!googleClientId) {
+      console.error("NEXT_PUBLIC_GOOGLE_CLIENT_ID 未定义，无法初始化 Google One Tap。");
+      return;
+    }
+
+    if (!configLoading && config?.enableGoogleLogin && typeof google !== 'undefined' && !oneTapInitialized.current) {
+      console.log("Initializing Google One Tap with Client ID:", googleClientId);
+
+      try {
+        google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response) => {
+            console.log("Google One Tap Callback received:", response);
+            if (response.credential) {
+              setLoadingProviderId("google-one-tap");
+              toast.info("Google One Tap 凭据已接收", "正在处理登录...");
+              try {
+                // !!! 关键修改 !!!
+                // 调用新的自定义 Credentials Provider
+                const result = await signIn('google-one-tap-credentials', { // 使用自定义 Provider 的 ID
+                  id_token: response.credential, // 传递 ID Token
+                  redirect: false, // 禁用 NextAuth 默认重定向
+                });
+
+                console.log("Auth.js signIn result for One Tap:", result);
+
+                if (result?.error) {
+                  toast.error("Google One Tap 登录失败", result.error);
+                } else if (result?.ok) {
+                  toast.success("Google One Tap 登录成功", "正在跳转...");
+                  const session = await getSession();
+                  if (session?.user?.role === "admin") {
+                    router.push("/admin");
+                  } else {
+                    router.push("/profile");
+                  }
+                }
+              } catch (error) {
+                console.error("处理 Google One Tap 凭据时发生错误:", error);
+                toast.error("Google One Tap 登录失败", "处理凭据时出现错误");
+              } finally {
+                setLoadingProviderId(null);
+              }
+            } else {
+              console.warn("Google One Tap Callback: 未收到凭据。");
+            }
+          },
+          auto_select: true,
+          cancel_on_tap_outside: false,
+          itp_support: true,
+        });
+
+        console.log("Calling google.accounts.id.prompt()...");
+        google.accounts.id.prompt((notification: any) => {
+          console.log("Google One Tap Prompt Notification:", notification);
+          if (notification.is === "skipped" || notification.is === "dismissed") {
+            console.log("Google One Tap 提示被跳过或关闭。原因：", notification.reason || "用户操作");
+          } else if (notification.is === "suppressed") {
+            console.log("Google One Tap 提示被抑制。原因：", notification.reason);
+            if (notification.reason === "credential_returned_from_session_storage") {
+              toast.info("Google One Tap 自动登录", "正在尝试自动登录，请稍候...");
+            } else if (notification.reason === "auto_select_disabled_by_cooldown") {
+              toast.info("Google One Tap 冷却中", "Google One Tap 提示在 10 分钟内不会再次出现。");
+            } else if (notification.reason === "fedcm_disabled_by_user" || notification.reason === "browser_fedcm_disabled") {
+                toast.error("Google One Tap 禁用", "浏览器 FedCM 被禁用，请在浏览器设置中启用第三方登录。");
+            } else {
+              toast.info("Google One Tap 提示被抑制", `原因: ${notification.reason}`);
+            }
+          } else if (notification.is === "success") {
+            console.log("Google One Tap 提示成功显示。");
+          }
+        });
+        oneTapInitialized.current = true;
+      } catch (e) {
+        console.error("Google One Tap 初始化失败:", e);
+        toast.error("Google One Tap 初始化失败", "请检查控制台错误。");
+      }
+    }
+    return () => {
+      if (typeof google !== 'undefined' && oneTapInitialized.current) {
+        console.log("Canceling Google One Tap prompt on component unmount.");
+        google.accounts.id.cancel();
+        oneTapInitialized.current = false;
+      }
+    };
+  }, [configLoading, config?.enableGoogleLogin, providers, toast, router]);
+
 
   // 处理错误信息
   useEffect(() => {
@@ -54,12 +191,13 @@ export default function SignInPage() {
   }, [searchParams, toast]);
 
   const handleOAuthSignIn = async (providerId: string) => {
-    setIsLoading(true);
+    setLoadingProviderId(providerId); // 设置当前点击的按钮为加载状态
     try {
       await signIn(providerId, { callbackUrl: "/" });
     } catch (error) {
       toast.error("登录失败", "第三方登录出现错误，请重试");
-      setIsLoading(false);
+    } finally {
+      setLoadingProviderId(null); // 无论成功失败，重置加载状态
     }
   };
 
@@ -80,6 +218,7 @@ export default function SignInPage() {
 
     setIsLoading(true);
 
+    setLoadingProviderId("magic-link-email"); 
     try {
       const response = await fetch("/api/auth/send-magic-link", {
         method: "POST",
@@ -100,6 +239,7 @@ export default function SignInPage() {
       toast.error("发送失败", "网络错误，请重试");
     } finally {
       setIsLoading(false);
+      setLoadingProviderId(null); 
     }
   };
 
@@ -170,7 +310,7 @@ export default function SignInPage() {
   }
 
   // 获取可用的第三方登录提供商
-  const oauthProviders = providers ? Object.values(providers).filter(provider => provider.type === "oauth") : [];
+  const oauthProviders = providers ? Object.values(providers).filter(provider => provider.type === "oauth" || provider.type === "oidc") : [];
 
   return (
     <>
@@ -192,14 +332,23 @@ export default function SignInPage() {
           </div>
 
           <div className="bg-white py-8 px-6 shadow-xl rounded-2xl">
+
+            {/* Google One Tap 加载状态提示 */}
+            {loadingProviderId === "google-one-tap" && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg flex items-center justify-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span>Google One Tap 登录中...</span>
+              </div>
+            )}
+
             {/* 第三方登录按钮 */}
             {oauthProviders.length > 0 && (
               <div className="space-y-3 mb-8">
                 {oauthProviders.map((provider) => (
                   <button
-                    key={provider.name}
+                    key={provider.id}
                     onClick={() => handleOAuthSignIn(provider.id)}
-                    disabled={isLoading}
+                    disabled={loadingProviderId !== null}
                     className={`
                       w-full flex justify-center items-center px-4 py-3 rounded-xl text-sm font-medium
                       transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]
@@ -208,7 +357,7 @@ export default function SignInPage() {
                       shadow-sm hover:shadow-md
                     `}
                   >
-                    {isLoading ? (
+                    {loadingProviderId === provider.id ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
                     ) : (
                       <>
@@ -257,10 +406,10 @@ export default function SignInPage() {
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loadingProviderId !== null}
                   className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-base font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  {isLoading ? (
+                  {loadingProviderId === "magic-link-email" ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
                       <span>发送中...</span>

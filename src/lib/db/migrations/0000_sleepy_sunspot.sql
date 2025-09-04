@@ -1,9 +1,9 @@
 CREATE TABLE `accounts` (
 	`id` text NOT NULL,
-	`user_id` text NOT NULL,
+	`userId` text NOT NULL,
 	`type` text NOT NULL,
 	`provider` text NOT NULL,
-	`provider_account_id` text NOT NULL,
+	`providerAccountId` text NOT NULL,
 	`refresh_token` text,
 	`access_token` text,
 	`expires_at` integer,
@@ -11,8 +11,10 @@ CREATE TABLE `accounts` (
 	`scope` text,
 	`id_token` text,
 	`session_state` text,
-	PRIMARY KEY(`provider`, `provider_account_id`),
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	`oauth_token_secret` text,
+	`oauth_token` text,
+	PRIMARY KEY(`provider`, `providerAccountId`),
+	FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `app_oauth_configs` (
@@ -55,7 +57,8 @@ CREATE TABLE `magic_links` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `magic_links_token_unique` ON `magic_links` (`token`);--> statement-breakpoint
 CREATE TABLE `sessions` (
-	`sessionToken` text PRIMARY KEY NOT NULL,
+	`id` text PRIMARY KEY NOT NULL,
+	`sessionToken` text NOT NULL,
 	`userId` text NOT NULL,
 	`expires` integer NOT NULL,
 	FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
@@ -74,12 +77,12 @@ CREATE TABLE `user_app_authorizations` (
 --> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
-	`email` text NOT NULL,
-	`email_verified` integer,
 	`name` text,
+	`email` text NOT NULL,
+	`emailVerified` integer,
 	`image` text,
 	`password` text,
-	`role` text DEFAULT 'user' NOT NULL,
+	`role` text DEFAULT 'user',
 	`created_at` integer DEFAULT CURRENT_TIMESTAMP,
 	`updated_at` integer DEFAULT CURRENT_TIMESTAMP
 );

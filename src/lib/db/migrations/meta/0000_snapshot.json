@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1fb80b0c-5b1c-4484-985c-613f73c03894",
+  "id": "44a47f45-2312-4acb-85f0-49d1c0f13e6c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "accounts": {
@@ -14,8 +14,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "user_id": {
-          "name": "user_id",
+        "userId": {
+          "name": "userId",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -35,8 +35,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "provider_account_id": {
-          "name": "provider_account_id",
+        "providerAccountId": {
+          "name": "providerAccountId",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -90,16 +90,30 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "oauth_token_secret": {
+          "name": "oauth_token_secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "oauth_token": {
+          "name": "oauth_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "accounts_user_id_users_id_fk": {
-          "name": "accounts_user_id_users_id_fk",
+        "accounts_userId_users_id_fk": {
+          "name": "accounts_userId_users_id_fk",
           "tableFrom": "accounts",
           "tableTo": "users",
           "columnsFrom": [
-            "user_id"
+            "userId"
           ],
           "columnsTo": [
             "id"
@@ -109,12 +123,12 @@
         }
       },
       "compositePrimaryKeys": {
-        "accounts_provider_provider_account_id_pk": {
+        "accounts_provider_providerAccountId_pk": {
           "columns": [
             "provider",
-            "provider_account_id"
+            "providerAccountId"
           ],
-          "name": "accounts_provider_provider_account_id_pk"
+          "name": "accounts_provider_providerAccountId_pk"
         }
       },
       "uniqueConstraints": {},
@@ -387,10 +401,17 @@
     "sessions": {
       "name": "sessions",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
         "sessionToken": {
           "name": "sessionToken",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -520,6 +541,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "email": {
           "name": "email",
           "type": "text",
@@ -527,16 +555,9 @@
           "notNull": true,
           "autoincrement": false
         },
-        "email_verified": {
-          "name": "email_verified",
+        "emailVerified": {
+          "name": "emailVerified",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -559,7 +580,7 @@
           "name": "role",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false,
           "default": "'user'"
         },

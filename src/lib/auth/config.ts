@@ -6,11 +6,13 @@ import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { getDb } from "../db"
-import { users } from "../db/schema"
+import { applications, users } from "../db/schema"
 import { eq, and } from "drizzle-orm"
 import { D1Adapter } from "@auth/d1-adapter"
 import { nanoid } from "nanoid"
 import { hashPassword } from "../utils/password";
+import { signJwt } from "../utils/jwt"
+import { OAuth2Client } from 'google-auth-library';
 
 export const runtime = 'edge'; 
 
@@ -70,6 +72,95 @@ export const authConfig: NextAuthConfig = {
       })
     ]),
 
+    ...(AUTH_CONFIG.enableGoogleLogin ? [
+      CredentialsProvider({
+        id: "google-one-tap-credentials", // 独特的 ID
+        name: "Google One Tap",
+        credentials: {
+          id_token: { label: "ID Token", type: "text" } // 接收 ID Token
+        },
+        async authorize(credentials) {
+          console.log("--- Custom Google One Tap Credentials Provider called ---");
+          console.log("Credentials received:", credentials);
+
+          if (!credentials?.id_token) {
+            console.error("Missing ID Token in credentials.");
+            return null;
+          }
+
+          try {
+            const googleClientId = process.env.GOOGLE_CLIENT_ID;
+            if (!googleClientId) {
+              console.error("GOOGLE_CLIENT_ID 未定义，无法验证 Google ID Token。");
+              return null;
+            }
+
+            const googleOAuth2Client = new OAuth2Client(googleClientId);
+
+            // 验证 Google ID Token
+            const ticket = await googleOAuth2Client.verifyIdToken({
+                idToken: credentials.id_token as string,
+                audience: process.env.GOOGLE_CLIENT_ID, // 必须是你的 Client ID
+            });
+            const payload = ticket.getPayload(); // 获取 ID Token 的载荷
+
+            if (!payload || !payload.email) {
+              console.error("Failed to get payload or email from ID Token.");
+              return null;
+            }
+
+            console.log("Google ID Token Payload:", payload);
+
+            const { env } = await getCloudflareContext();
+            const db = getDb(env.DB);
+
+            // 检查用户是否存在，不存在则创建
+            let userRecord = await db.select()
+              .from(users)
+              .where(eq(users.email, payload.email))
+              .limit(1);
+
+            if (!userRecord[0]) {
+              console.log("Creating new user for Google One Tap:", payload.email);
+              const newUserId = nanoid();
+              const newUser = await db.insert(users).values({
+                id: newUserId,
+                name: payload.name || payload.email.split('@')[0],
+                email: payload.email,
+                image: payload.picture,
+                role: "user",
+                emailVerified: new Date(payload.email_verified ? payload.exp * 1000 : 0), // 根据 ID Token 信息设置
+              }).returning();
+              userRecord = newUser;
+            } else {
+              console.log("Existing user found for Google One Tap:", payload.email);
+              // 如果需要，可以更新用户信息，例如头像
+              await db.update(users)
+                .set({
+                  name: payload.name || userRecord[0].name,
+                  image: payload.picture || userRecord[0].image,
+                  emailVerified: new Date(payload.email_verified ? payload.exp * 1000 : 0),
+                  updatedAt: new Date(),
+                })
+                .where(eq(users.id, userRecord[0].id));
+            }
+
+            return {
+              id: userRecord[0].id,
+              email: userRecord[0].email,
+              name: userRecord[0].name,
+              image: userRecord[0].image,
+              role: userRecord[0].role,
+            };
+
+          } catch (error) {
+            console.error("Google ID Token 验证失败:", error);
+            return null;
+          }
+        }
+      })
+    ] : []),
+
     // Google 登录
     ...(AUTH_CONFIG.enableGoogleLogin ? [
       GoogleProvider({
@@ -88,6 +179,7 @@ export const authConfig: NextAuthConfig = {
   ],
   pages: {
     signIn: "/auth/signin",
+    error: '/auth/error',
     verifyRequest: "/auth/verify-request", // 魔法链接发送后的页面
   },
   callbacks: {
@@ -105,6 +197,15 @@ export const authConfig: NextAuthConfig = {
       return session
     },
     async signIn({ user, account, profile }) {
+      console.log("--- NextAuth signIn callback called ---");
+      console.log("User object in callback:", user);
+      console.log("Account object in callback:", account);
+      console.log("Profile object in callback:", profile);
+
+      if (account?.provider === "admin-credentials" || account?.provider === "google-one-tap-credentials") {
+        return true;
+      }
+
       // 处理所有登录方式的自动用户创建
       const { env } = await getCloudflareContext()
       const db = getDb(env.DB)
@@ -116,21 +217,31 @@ export const authConfig: NextAuthConfig = {
         .limit(1)
 
       if (!existingUser[0]) {
-        // 自动创建新用户
-        try {
-          const newUser = await db.insert(users).values({
-            id: user.id || nanoid(),
-            name: user.name || user.email?.split('@')[0] || "新用户",
-            email: user.email!,
-            image: user.image,
-            role: "user",
-            emailVerified: account?.provider === "email" ? new Date() : null,
-          }).returning()
+        if (account?.provider === "github") {
+          // 设置新用户的默认角色
+          user.role = "user";
+        } else if (account?.provider === "google") {
+          console.log("Google One Tap (OIDC) login detected.");
+          console.log("Account ID Token:", account.id_token);
+          // 设置新用户的默认角色
+          user.role = "user";
+        } else if (account?.provider === "email" && AUTH_CONFIG.enableMagicLink) {
+          // 自动创建新用户
+          try {
+            const newUser = await db.insert(users).values({
+              id: user.id || nanoid(),
+              name: user.name || user.email?.split('@')[0] || "新用户",
+              email: user.email!,
+              image: user.image,
+              role: "user",
+              emailVerified: account?.provider === "email" ? new Date() : null,
+            }).returning()
 
-          user.role = "user"
-        } catch (error) {
-          console.error("自动注册失败:", error)
-          return false
+            user.role = "user"
+          } catch (error) {
+            console.error("自动注册失败:", error)
+            return false
+          }
         }
       } else {
         // 用户已存在，使用数据库中的角色
@@ -145,6 +256,7 @@ export const authConfig: NextAuthConfig = {
       }
       return true
     },
+    
   },
   session: {
     strategy: "jwt"
@@ -156,11 +268,11 @@ export const authConfig: NextAuthConfig = {
 // 导出 auth 函数
 export const { handlers, auth, signIn, signOut } = NextAuth((request) => {
     const context = getCloudflareContext();
-    const db = getDb(context.env.DB);
+    const _db = getDb(context.env.DB);
     // 动态设置 adapter
     return {
         ...authConfig,
-        adapter: D1Adapter(db),
+        adapter: D1Adapter(context.env.DB),
     }
 });
 

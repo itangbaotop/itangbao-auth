@@ -16,17 +16,19 @@ export default function MagicLinkPage() {
   useEffect(() => {
     const token = searchParams.get("token");
     const email = searchParams.get("email");
-
+    const appIdParam = searchParams.get('appId');
+    const redirectUriParam = searchParams.get('redirectUri');
+    
     if (!token || !email) {
       setError("无效的魔法链接");
       setIsVerifying(false);
       return;
     }
 
-    verifyMagicLink(token, email);
+    verifyMagicLink(token, email, appIdParam, redirectUriParam);
   }, [searchParams]);
 
-  const verifyMagicLink = async (token: string, email: string) => {
+  const verifyMagicLink = async (token: string, email: string, appIdParam?: string | null, redirectUriParam?: string | null) => {
     try {
       const response = await fetch("/api/auth/verify-magic-link", {
         method: "POST",
@@ -40,11 +42,19 @@ export default function MagicLinkPage() {
         if (data.success) {
           toast.success("验证成功", "正在为您登录...");
           
+          // 构建 callbackUrl，用于 Auth.js 的 redirect 回调
+        const callbackUrl = new URL(window.location.origin);
+        callbackUrl.pathname = '/auth/post-login'; // 指向中间处理页
+
+        if (appIdParam) callbackUrl.searchParams.set('appId', appIdParam);
+        if (redirectUriParam) callbackUrl.searchParams.set('redirectUri', redirectUriParam);
+
           // 使用 NextAuth 登录
           const result = await signIn("credentials", {
             email: email,
             magicToken: token,
             redirect: false,
+            callbackUrl: callbackUrl.toString(), // 将构造好的 callbackUrl 传递给 signIn
           });
 
           if (result?.ok) {

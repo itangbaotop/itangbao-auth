@@ -18,6 +18,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
+      <head>
+        {/* 加载 Google Identity Services 库 */}
+        <script src="https://accounts.google.com/gsi/client" async defer></script>
+      </head>
       <body className={inter.className}>
         <Providers>
           {children}
