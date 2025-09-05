@@ -113,3 +113,16 @@ export const magicLinks = sqliteTable("magic_links", {
   used: integer("used", { mode: "boolean" }).default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
 })
+
+// -- 添加 refresh_tokens 表
+export const refreshTokens = sqliteTable("refresh_tokens", {
+  id: text("id").notNull().primaryKey(),
+  token: text("token").notNull().unique(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  clientId: text("client_id").notNull().references(() => applications.clientId, { onDelete: "cascade" }),
+  scope: text("scope"),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  isRevoked: integer("is_revoked", { mode: "boolean" }).default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`)
+})

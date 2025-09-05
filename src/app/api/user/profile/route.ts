@@ -13,7 +13,7 @@ export const runtime = "edge";
 export async function GET() {
   try {
     const session = await auth();
-    
+    console.log("session", session);
     if (!session?.user?.email) {
       return NextResponse.json(
         { error: "未登录" },

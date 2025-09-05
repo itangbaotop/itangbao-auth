@@ -38,7 +38,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 todo
 - [ ] Google一键登录成功
-- [ ] app的登录和回调流程
+- [-] app的登录和回调流程
 - [ ] 登陆页面和 资料页面 支持中英文切换
-- [ ] 增加刷新token机制
-- [ ] 增加app密钥管理
+- [-] 增加刷新token机制
+

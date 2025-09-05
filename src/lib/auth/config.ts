@@ -6,7 +6,7 @@ import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { getDb } from "../db"
-import { users } from "../db/schema"
+import { refreshTokens, users } from "../db/schema"
 import { eq, and } from "drizzle-orm"
 import { D1Adapter } from "@auth/d1-adapter"
 import { nanoid } from "nanoid"
@@ -43,6 +43,21 @@ export const authConfig: NextAuthConfig = {
         ;(session.user as any).role = token.role as string
       }
       return session
+    },
+    async signOut({ token }) {
+      // 当用户通过 NextAuth 登出时，撤销相关的 OAuth refresh tokens
+      if (token?.sub) {
+        const { env } = await getCloudflareContext();
+        const db = getDb(env.DB);
+        
+        // 撤销该用户的所有未撤销的 refresh tokens
+        await db.update(refreshTokens)
+          .set({ isRevoked: true, updatedAt: new Date() })
+          .where(and(
+            eq(refreshTokens.userId, token.sub),
+            eq(refreshTokens.isRevoked, false)
+          ));
+      }
     },
     async signIn({ user, account }) {
       console.log("Sign-in attempt:", { user, account });

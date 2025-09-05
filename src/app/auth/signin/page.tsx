@@ -115,81 +115,81 @@ export default function SignInPage() {
     router, getSession, originalClientId, originalRedirectUri, authorizeRedirectUrl, toast
   ]);
 
-  useEffect(() => {
-    console.log("One Tap useEffect: Checking conditions...");
-    console.log("configLoading:", configLoading, "config?.enableGoogleLogin:", config?.enableGoogleLogin, "typeof google:", typeof google);
-    console.log("oneTapInitialized.current:", oneTapInitialized.current);
+  // useEffect(() => {
+  //   console.log("One Tap useEffect: Checking conditions...");
+  //   console.log("configLoading:", configLoading, "config?.enableGoogleLogin:", config?.enableGoogleLogin, "typeof google:", typeof google);
+  //   console.log("oneTapInitialized.current:", oneTapInitialized.current);
 
-    const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  //   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
-    if (!googleClientId) {
-      console.error("NEXT_PUBLIC_GOOGLE_CLIENT_ID 未定义，无法初始化 Google One Tap。");
-      return;
-    }
+  //   if (!googleClientId) {
+  //     console.error("NEXT_PUBLIC_GOOGLE_CLIENT_ID 未定义，无法初始化 Google One Tap。");
+  //     return;
+  //   }
 
-    if (!configLoading && config?.enableGoogleLogin && typeof google !== 'undefined' && !oneTapInitialized.current) {
-      console.log("Initializing Google One Tap with Client ID:", googleClientId);
+  //   if (!configLoading && config?.enableGoogleLogin && typeof google !== 'undefined' && !oneTapInitialized.current) {
+  //     console.log("Initializing Google One Tap with Client ID:", googleClientId);
 
-      try {
-        google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: async (response) => {
-            console.log("Google One Tap Callback received:", response);
-            if (response.credential) {
-              setLoadingProviderId("google-one-tap");
-              toast.info("Google One Tap 凭据已接收", "正在处理登录...");
-              try {
-                const result = await signIn('google-one-tap-credentials', {
-                  id_token: response.credential,
-                  redirect: false,
-                });
+  //     try {
+  //       google.accounts.id.initialize({
+  //         client_id: googleClientId,
+  //         callback: async (response) => {
+  //           console.log("Google One Tap Callback received:", response);
+  //           if (response.credential) {
+  //             setLoadingProviderId("google-one-tap");
+  //             toast.info("Google One Tap 凭据已接收", "正在处理登录...");
+  //             try {
+  //               const result = await signIn('google-one-tap-credentials', {
+  //                 id_token: response.credential,
+  //                 redirect: false,
+  //               });
 
-                console.log("Auth.js signIn result for One Tap:", result);
+  //               console.log("Auth.js signIn result for One Tap:", result);
 
-                if (result?.error) {
-                  toast.error("Google One Tap 登录失败", result.error);
-                } else if (result?.ok) {
-                  toast.success("Google One Tap 登录成功", "正在跳转...");
-                  const session = await getSession(); // 获取最新会话
+  //               if (result?.error) {
+  //                 toast.error("Google One Tap 登录失败", result.error);
+  //               } else if (result?.ok) {
+  //                 toast.success("Google One Tap 登录成功", "正在跳转...");
+  //                 const session = await getSession(); // 获取最新会话
                   
-                   setTimeout(() => {
-                      handleSuccessfulLoginRedirect();
-                  }, 500);
-                }
-              } catch (error) {
-                console.error("处理 Google One Tap 凭据时发生错误:", error);
-                toast.error("Google One Tap 登录失败", "处理凭据时出现错误");
-              } finally {
-                setLoadingProviderId(null);
-              }
-            } else {
-              console.warn("Google One Tap Callback: 未收到凭据。");
-            }
-          },
-          auto_select: true,
-          cancel_on_tap_outside: false,
-          itp_support: true,
-        });
+  //                  setTimeout(() => {
+  //                     handleSuccessfulLoginRedirect();
+  //                 }, 500);
+  //               }
+  //             } catch (error) {
+  //               console.error("处理 Google One Tap 凭据时发生错误:", error);
+  //               toast.error("Google One Tap 登录失败", "处理凭据时出现错误");
+  //             } finally {
+  //               setLoadingProviderId(null);
+  //             }
+  //           } else {
+  //             console.warn("Google One Tap Callback: 未收到凭据。");
+  //           }
+  //         },
+  //         auto_select: true,
+  //         cancel_on_tap_outside: false,
+  //         itp_support: true,
+  //       });
 
-        console.log("Calling google.accounts.id.prompt()...");
-        google.accounts.id.prompt((notification: any) => {
-          console.log("Google One Tap Prompt Notification:", notification);
-          // ... (通知处理)
-        });
-        oneTapInitialized.current = true;
-      } catch (e) {
-        console.error("Google One Tap 初始化失败:", e);
-        toast.error("Google One Tap 初始化失败", "请检查控制台错误。");
-      }
-    }
-    return () => {
-      if (typeof google !== 'undefined' && oneTapInitialized.current) {
-        console.log("Canceling Google One Tap prompt on component unmount.");
-        google.accounts.id.cancel();
-        oneTapInitialized.current = false;
-      }
-    };
-  }, [configLoading, config?.enableGoogleLogin, providers, toast, router, authorizeRedirectUrl, originalClientId, originalRedirectUri]);
+  //       console.log("Calling google.accounts.id.prompt()...");
+  //       google.accounts.id.prompt((notification: any) => {
+  //         console.log("Google One Tap Prompt Notification:", notification);
+  //         // ... (通知处理)
+  //       });
+  //       oneTapInitialized.current = true;
+  //     } catch (e) {
+  //       console.error("Google One Tap 初始化失败:", e);
+  //       toast.error("Google One Tap 初始化失败", "请检查控制台错误。");
+  //     }
+  //   }
+  //   return () => {
+  //     if (typeof google !== 'undefined' && oneTapInitialized.current) {
+  //       console.log("Canceling Google One Tap prompt on component unmount.");
+  //       google.accounts.id.cancel();
+  //       oneTapInitialized.current = false;
+  //     }
+  //   };
+  // }, [configLoading, config?.enableGoogleLogin, providers, toast, router, authorizeRedirectUrl, originalClientId, originalRedirectUri]);
 
 
 
