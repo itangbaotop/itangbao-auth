@@ -1,23 +1,84 @@
 // src/app/auth/magic-link/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getSession, signIn } from "next-auth/react";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/ToastContainer";
 
 export default function MagicLinkPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [isVerifying, setIsVerifying] = useState(true);
   const [error, setError] = useState("");
   const { toasts, toast, removeToast } = useToast();
 
+  const componentMounted = useRef(true);
+
+  // 从 URL 获取原始 OAuth 参数
+  const originalClientId = searchParams.get('client_id');
+  const originalRedirectUri = searchParams.get('redirect_uri');
+  const originalResponseType = searchParams.get('response_type');
+  const originalState = searchParams.get('state');
+  const originalCodeChallenge = searchParams.get('code_challenge');
+  const originalCodeChallengeMethod = searchParams.get('code_challenge_method');
+
+  // 构建登录成功后重定向到 /auth/authorize 的 URL
+  // 确保在客户端环境才访问 window.location.origin
+  const [authorizeRedirectUrl, setAuthorizeRedirectUrl] = useState<URL | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !authorizeRedirectUrl) {
+      const url = new URL('/api/auth/authorize', window.location.origin);
+      if (originalClientId) url.searchParams.set('client_id', originalClientId);
+      if (originalRedirectUri) url.searchParams.set('redirect_uri', originalRedirectUri);
+      if (originalResponseType) url.searchParams.set('response_type', originalResponseType);
+      if (originalState) url.searchParams.set('state', originalState);
+      if (originalCodeChallenge) url.searchParams.set('code_challenge', originalCodeChallenge);
+      if (originalCodeChallengeMethod) url.searchParams.set('code_challenge_method', originalCodeChallengeMethod);
+      setAuthorizeRedirectUrl(url);
+      console.log("authorizeRedirectUrl initialized:", url.toString());
+    }
+  }, [
+    authorizeRedirectUrl, originalClientId, originalRedirectUri, originalResponseType, 
+    originalState, originalCodeChallenge, originalCodeChallengeMethod
+  ]);
+
+  const handleSuccessfulLoginRedirect = useCallback(async () => {
+    // 只有当组件仍然挂载时才执行跳转
+    if (!componentMounted.current) {
+      console.warn("Component unmounted, skipping redirect.");
+      return;
+    }
+
+    if (!authorizeRedirectUrl) {
+      console.error("handleSuccessfulLoginRedirect: authorizeRedirectUrl is null, cannot redirect.");
+      toast.error("跳转失败", "认证服务配置错误，请联系管理员。");
+      router.replace("/profile"); // 回退到默认页面
+      return;
+    }
+
+    const session = await getSession(); // 获取最新会话
+    console.log("handleSuccessfulLoginRedirect: After signIn, getSession returned:", session);
+
+    if (session?.user?.role === "admin") {
+      console.log("handleSuccessfulLoginRedirect: Redirecting to /admin");
+      router.replace("/admin");
+    } else if (originalClientId && originalRedirectUri) { // 确保有 OAuth 参数
+      console.log("handleSuccessfulLoginRedirect: Redirecting to /auth/authorize:", authorizeRedirectUrl.toString());
+      router.replace(authorizeRedirectUrl.toString());
+    } else {
+      console.log("handleSuccessfulLoginRedirect: Redirecting to /profile (default)");
+      router.replace("/profile"); // 普通用户默认跳转到个人资料页
+    }
+  }, [
+    router, originalClientId, originalRedirectUri, authorizeRedirectUrl, toast
+  ]);
+
   useEffect(() => {
     const token = searchParams.get("token");
     const email = searchParams.get("email");
-    const appIdParam = searchParams.get('appId');
-    const redirectUriParam = searchParams.get('redirectUri');
     
     if (!token || !email) {
       setError("无效的魔法链接");
@@ -25,10 +86,10 @@ export default function MagicLinkPage() {
       return;
     }
 
-    verifyMagicLink(token, email, appIdParam, redirectUriParam);
+    verifyMagicLink(token, email);
   }, [searchParams]);
 
-  const verifyMagicLink = async (token: string, email: string, appIdParam?: string | null, redirectUriParam?: string | null) => {
+  const verifyMagicLink = async (token: string, email: string) => {
     try {
       const response = await fetch("/api/auth/verify-magic-link", {
         method: "POST",
@@ -42,23 +103,16 @@ export default function MagicLinkPage() {
         if (data.success) {
           toast.success("验证成功", "正在为您登录...");
           
-          // 构建 callbackUrl，用于 Auth.js 的 redirect 回调
-        const callbackUrl = new URL(window.location.origin);
-        callbackUrl.pathname = '/auth/post-login'; // 指向中间处理页
-
-        if (appIdParam) callbackUrl.searchParams.set('appId', appIdParam);
-        if (redirectUriParam) callbackUrl.searchParams.set('redirectUri', redirectUriParam);
-
-          // 使用 NextAuth 登录
-          const result = await signIn("credentials", {
+          const result = await signIn("magic-link-credentials", {
             email: email,
             magicToken: token,
             redirect: false,
-            callbackUrl: callbackUrl.toString(), // 将构造好的 callbackUrl 传递给 signIn
           });
 
           if (result?.ok) {
-            window.location.href = "/";
+            setTimeout(() => {
+                handleSuccessfulLoginRedirect();
+            }, 500);
           } else {
             setError("登录失败，请重试");
           }
@@ -71,7 +125,7 @@ export default function MagicLinkPage() {
       }
     } catch (error) {
       console.error("验证魔法链接失败:", error);
-      setError("验证失败，请重试");
+      setError("验证失败", "请重试");
     } finally {
       setIsVerifying(false);
     }

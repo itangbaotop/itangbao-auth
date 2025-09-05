@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn, getSession } from "next-auth/react";
+import { signIn, getSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/ToastContainer";
@@ -24,21 +24,22 @@ export default function AdminLoginPage() {
       const result = await signIn("admin-credentials", {
         email: formData.email,
         password: formData.password,
-        redirect: false,
+        redirect: false, // 禁用 NextAuth 默认重定向
       });
+
+      console.log("Admin login result:", result);
 
       if (result?.error) {
         toast.error("登录失败", "邮箱或密码错误，或您不是管理员");
       } else if (result?.ok) {
-        // 验证用户是否为管理员
         const session = await getSession();
         if (session?.user?.role === "admin") {
           toast.success("登录成功", "欢迎回来，管理员！");
-          setTimeout(() => {
-            router.push("/admin");
-          }, 1000);
+          router.push("/admin"); // 手动跳转
         } else {
           toast.error("权限不足", "您不是管理员用户");
+          // 登录成功但不是管理员，也需要退出会话
+          await signOut({ callbackUrl: "/auth/signin" });
         }
       }
     } catch (error) {

@@ -2,13 +2,13 @@
 "use client";
 
 import { getSession, signIn } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback  } from "react";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/ToastContainer";
 import { useAuthProviders } from "@/contexts/AuthProvidersContext";
 import { useAuthConfig } from "@/hooks/useAuthConfig";
-import router from "next/router";
+import { useRouter } from "next/navigation";
 
 
 // 声明 Google 的全局类型，避免 TypeScript 报错
@@ -54,11 +54,67 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { toasts, toast, removeToast } = useToast();
 
   const oneTapInitialized = useRef(false);
 
-  // Google One Tap 的初始化和回调
+  // 获取原始 OAuth 参数
+  const originalClientId = searchParams.get('client_id');
+  const originalRedirectUri = searchParams.get('redirect_uri');
+  const originalResponseType = searchParams.get('response_type');
+  const originalState = searchParams.get('state');
+  const originalCodeChallenge = searchParams.get('code_challenge');
+  const originalCodeChallengeMethod = searchParams.get('code_challenge_method');
+
+  // 构建登录成功后重定向到 /auth/authorize 的 URL
+  // 确保在客户端环境才访问 window.location.origin
+  const [authorizeRedirectUrl, setAuthorizeRedirectUrl] = useState<URL | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !authorizeRedirectUrl) {
+      const url = new URL('/api/auth/authorize', window.location.origin);
+      if (originalClientId) url.searchParams.set('client_id', originalClientId);
+      if (originalRedirectUri) url.searchParams.set('redirect_uri', originalRedirectUri);
+      if (originalResponseType) url.searchParams.set('response_type', originalResponseType);
+      if (originalState) url.searchParams.set('state', originalState);
+      if (originalCodeChallenge) url.searchParams.set('code_challenge', originalCodeChallenge);
+      if (originalCodeChallengeMethod) url.searchParams.set('code_challenge_method', originalCodeChallengeMethod);
+      setAuthorizeRedirectUrl(url);
+      console.log("authorizeRedirectUrl initialized:", url.toString());
+    }
+  }, [
+    authorizeRedirectUrl, originalClientId, originalRedirectUri, originalResponseType, 
+    originalState, originalCodeChallenge, originalCodeChallengeMethod
+  ]);
+
+
+  const handleSuccessfulLoginRedirect = useCallback(async () => {
+    // 确保 authorizeRedirectUrl 已经可用
+    if (!authorizeRedirectUrl) {
+      console.error("handleSuccessfulLoginRedirect: authorizeRedirectUrl is null, cannot redirect.");
+      toast.error("跳转失败", "认证服务配置错误，请联系管理员。");
+      router.replace("/profile"); // 回退到默认页面
+      return;
+    }
+
+    const session = await getSession(); // 获取最新会话
+    console.log("handleSuccessfulLoginRedirect: After signIn, getSession returned:", session);
+
+    if (session?.user?.role === "admin") {
+      console.log("handleSuccessfulLoginRedirect: Redirecting to /admin");
+      router.replace("/admin");
+    } else if (originalClientId && originalRedirectUri) { // 确保有 OAuth 参数
+      console.log("handleSuccessfulLoginRedirect: Redirecting to /auth/authorize:", authorizeRedirectUrl.toString());
+      router.replace(authorizeRedirectUrl.toString());
+    } else {
+      console.log("handleSuccessfulLoginRedirect: Redirecting to /profile (default)");
+      router.replace("/profile"); // 普通用户默认跳转到个人资料页
+    }
+  }, [
+    router, getSession, originalClientId, originalRedirectUri, authorizeRedirectUrl, toast
+  ]);
+
   useEffect(() => {
     console.log("One Tap useEffect: Checking conditions...");
     console.log("configLoading:", configLoading, "config?.enableGoogleLogin:", config?.enableGoogleLogin, "typeof google:", typeof google);
@@ -83,11 +139,9 @@ export default function SignInPage() {
               setLoadingProviderId("google-one-tap");
               toast.info("Google One Tap 凭据已接收", "正在处理登录...");
               try {
-                // !!! 关键修改 !!!
-                // 调用新的自定义 Credentials Provider
-                const result = await signIn('google-one-tap-credentials', { // 使用自定义 Provider 的 ID
-                  id_token: response.credential, // 传递 ID Token
-                  redirect: false, // 禁用 NextAuth 默认重定向
+                const result = await signIn('google-one-tap-credentials', {
+                  id_token: response.credential,
+                  redirect: false,
                 });
 
                 console.log("Auth.js signIn result for One Tap:", result);
@@ -96,12 +150,11 @@ export default function SignInPage() {
                   toast.error("Google One Tap 登录失败", result.error);
                 } else if (result?.ok) {
                   toast.success("Google One Tap 登录成功", "正在跳转...");
-                  const session = await getSession();
-                  if (session?.user?.role === "admin") {
-                    router.push("/admin");
-                  } else {
-                    router.push("/profile");
-                  }
+                  const session = await getSession(); // 获取最新会话
+                  
+                   setTimeout(() => {
+                      handleSuccessfulLoginRedirect();
+                  }, 500);
                 }
               } catch (error) {
                 console.error("处理 Google One Tap 凭据时发生错误:", error);
@@ -121,22 +174,7 @@ export default function SignInPage() {
         console.log("Calling google.accounts.id.prompt()...");
         google.accounts.id.prompt((notification: any) => {
           console.log("Google One Tap Prompt Notification:", notification);
-          if (notification.is === "skipped" || notification.is === "dismissed") {
-            console.log("Google One Tap 提示被跳过或关闭。原因：", notification.reason || "用户操作");
-          } else if (notification.is === "suppressed") {
-            console.log("Google One Tap 提示被抑制。原因：", notification.reason);
-            if (notification.reason === "credential_returned_from_session_storage") {
-              toast.info("Google One Tap 自动登录", "正在尝试自动登录，请稍候...");
-            } else if (notification.reason === "auto_select_disabled_by_cooldown") {
-              toast.info("Google One Tap 冷却中", "Google One Tap 提示在 10 分钟内不会再次出现。");
-            } else if (notification.reason === "fedcm_disabled_by_user" || notification.reason === "browser_fedcm_disabled") {
-                toast.error("Google One Tap 禁用", "浏览器 FedCM 被禁用，请在浏览器设置中启用第三方登录。");
-            } else {
-              toast.info("Google One Tap 提示被抑制", `原因: ${notification.reason}`);
-            }
-          } else if (notification.is === "success") {
-            console.log("Google One Tap 提示成功显示。");
-          }
+          // ... (通知处理)
         });
         oneTapInitialized.current = true;
       } catch (e) {
@@ -151,7 +189,9 @@ export default function SignInPage() {
         oneTapInitialized.current = false;
       }
     };
-  }, [configLoading, config?.enableGoogleLogin, providers, toast, router]);
+  }, [configLoading, config?.enableGoogleLogin, providers, toast, router, authorizeRedirectUrl, originalClientId, originalRedirectUri]);
+
+
 
 
   // 处理错误信息
@@ -191,15 +231,38 @@ export default function SignInPage() {
   }, [searchParams, toast]);
 
   const handleOAuthSignIn = async (providerId: string) => {
-    setLoadingProviderId(providerId); // 设置当前点击的按钮为加载状态
+    console.log("Starting OAuth sign-in with provider:", providerId);
+    setLoadingProviderId(providerId);
     try {
-      await signIn(providerId, { callbackUrl: "/" });
+      let callbackUrl = authorizeRedirectUrl?.toString();
+      if (!callbackUrl && typeof window !== 'undefined') {
+        const url = new URL('/api/auth/authorize', window.location.origin);
+        if (originalClientId) url.searchParams.set('client_id', originalClientId);
+        if (originalRedirectUri) url.searchParams.set('redirect_uri', originalRedirectUri);
+        if (originalResponseType) url.searchParams.set('response_type', originalResponseType);
+        if (originalState) url.searchParams.set('state', originalState!);
+        if (originalCodeChallenge) url.searchParams.set('code_challenge', originalCodeChallenge);
+        if (originalCodeChallengeMethod) url.searchParams.set('code_challenge_method', originalCodeChallengeMethod);
+        callbackUrl = url.toString();
+      }
+      if (!callbackUrl) {
+        toast.error('缺少 OAuth 参数', '无法构建回调地址');
+        return;
+      }
+      // 让 NextAuth 执行完整的 OAuth 跳转与回调，并在回调后重定向到我们带参的 /api/auth/authorize
+      await signIn(providerId, {
+        callbackUrl,
+        redirect: true,
+      });
+      // 上面会触发浏览器跳转，这里的代码通常不会再继续执行
     } catch (error) {
+      console.log("登陆失败报错：", error)
       toast.error("登录失败", "第三方登录出现错误，请重试");
     } finally {
-      setLoadingProviderId(null); // 无论成功失败，重置加载状态
+      setLoadingProviderId(null);
     }
   };
+
 
   const handleContinueWithEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,28 +272,34 @@ export default function SignInPage() {
       return;
     }
 
-    // 简单的邮箱格式验证
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       toast.error("邮箱格式错误", "请输入有效的邮箱地址");
       return;
     }
 
-    setIsLoading(true);
-
-    setLoadingProviderId("magic-link-email"); 
+    setLoadingProviderId("magic-link-email");
     try {
       const response = await fetch("/api/auth/send-magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email }), 
       });
 
       if (response.ok) {
         const data = await response.json();
         toast.success("发送成功", data.message);
-        // 跳转到验证页面
-        window.location.href = `/auth/verify-request?email=${encodeURIComponent(email)}`;
+        // 跳转到 verify-request 页面时，带上 OAuth 参数
+        const verifyRequestUrl = new URL(`/auth/verify-request`, window.location.origin);
+        verifyRequestUrl.searchParams.set('email', encodeURIComponent(email));
+        if (originalClientId) verifyRequestUrl.searchParams.set('client_id', originalClientId);
+        if (originalRedirectUri) verifyRequestUrl.searchParams.set('redirect_uri', originalRedirectUri);
+        if (originalResponseType) verifyRequestUrl.searchParams.set('response_type', originalResponseType);
+        if (originalState) verifyRequestUrl.searchParams.set('state', originalState);
+        if (originalCodeChallenge) verifyRequestUrl.searchParams.set('code_challenge', originalCodeChallenge);
+        if (originalCodeChallengeMethod) verifyRequestUrl.searchParams.set('code_challenge_method', originalCodeChallengeMethod);
+        
+        window.location.href = verifyRequestUrl.toString(); // 直接跳转
       } else {
         const errorData = await response.json();
         toast.error("发送失败", errorData.error);
@@ -238,10 +307,21 @@ export default function SignInPage() {
     } catch (error) {
       toast.error("发送失败", "网络错误，请重试");
     } finally {
-      setIsLoading(false);
-      setLoadingProviderId(null); 
+      setLoadingProviderId(null);
     }
   };
+
+  if (!originalClientId || !originalRedirectUri || originalResponseType !== 'code') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center p-8 bg-white rounded-lg shadow-md">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">认证请求无效</h1>
+          <p className="text-gray-700">请通过客户端应用发起登录请求。</p>
+          <a href="/" className="mt-4 inline-block text-blue-500 hover:underline">返回主页</a>
+        </div>
+      </div>
+    );
+  }
 
   const getProviderIcon = (providerId: string) => {
     switch (providerId.toLowerCase()) {

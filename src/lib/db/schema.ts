@@ -59,6 +59,22 @@ export const applications = sqliteTable("applications", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`)
 })
 
+// 授权码表
+export const authorizationCodes = sqliteTable("authorization_codes", {
+  id: text("id").notNull().primaryKey(), // 授权码本身的 ID
+  code: text("code").notNull().unique(), // 实际发放给客户端的授权码字符串
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  clientId: text("client_id").notNull().references(() => applications.clientId, { onDelete: "cascade" }),
+  redirectUri: text("redirect_uri").notNull(),
+  scope: text("scope"), // 请求的权限范围
+  state: text("state"), // 客户端提供的 state
+  codeChallenge: text("code_challenge"), // PKCE code_challenge
+  codeChallengeMethod: text("code_challenge_method"), // PKCE code_challenge_method
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(), // 过期时间
+  isUsed: integer("is_used", { mode: "boolean" }).default(false), // 是否已使用
+  createdAt: integer("created_at", { mode: "timestamp" }).default(sql`CURRENT_TIMESTAMP`),
+});
+
 // 新增：应用的第三方登录配置
 export const appOAuthConfigs = sqliteTable("app_oauth_configs", {
   id: text("id").notNull().primaryKey(),

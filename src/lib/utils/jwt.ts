@@ -1,16 +1,19 @@
 // src/lib/utils/jwt.ts
 import * as jose from 'jose'; // 导入 jose 库
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 
 export const runtime = 'edge'; // 确保在 Edge Runtime 中运行
 
-// 检查 NEXTAUTH_SECRET 是否已设置
-if (!process.env.NEXTAUTH_SECRET) {
-  throw new Error('NEXTAUTH_SECRET is not set. It is required for JWT signing.');
+// 延迟并从 Cloudflare 环境中获取 JWT 密钥，避免在 Edge 顶层引用 Node 的 process
+async function getJwtSecret(): Promise<Uint8Array> {
+  const { env } = await getCloudflareContext();
+  const secret = env.NEXTAUTH_SECRET as string | undefined;
+  if (!secret) {
+    throw new Error('NEXTAUTH_SECRET is not set. It is required for JWT signing.');
+  }
+  return new TextEncoder().encode(secret);
 }
 
-// JWT 签名密钥
-// 使用 TextEncoder 将字符串密钥转换为 Uint8Array，这是 jose 库的要求
-const JWT_SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET);
 const JWT_ALG = 'HS256'; // 对称加密算法，例如 HMAC SHA256
 
 // JWT 载荷的类型定义
@@ -34,9 +37,11 @@ export interface UserJwtPayload {
  * @returns 签名的 JWT 字符串
  */
 export async function signJwt(payload: UserJwtPayload, expiresIn?: string): Promise<string> {
-  // 从环境变量获取默认过期时间，如果未设置则默认为 '7d'
-  const defaultExpiresIn = process.env.JWT_EXPIRES_IN || '7d';
+  const { env } = await getCloudflareContext();
+  // 从 CF 环境变量获取默认过期时间，如果未设置则默认为 '7d'
+  const defaultExpiresIn = (env.JWT_EXPIRES_IN as string | undefined) || '7d';
   const finalExpiresIn = expiresIn || defaultExpiresIn;
+  const secret = await getJwtSecret();
 
   return new jose.SignJWT(payload)
     .setProtectedHeader({ alg: JWT_ALG }) // 设置保护头部，指定签名算法
@@ -44,7 +49,7 @@ export async function signJwt(payload: UserJwtPayload, expiresIn?: string): Prom
     .setExpirationTime(finalExpiresIn) // 设置过期时间 (exp)
     .setAudience(payload.appId || 'default-app') // 设置受众 (aud)，通常是客户端应用的 appId
     .setIssuer('itangbao-auth') // 设置签发者 (iss)，即你的认证服务名称
-    .sign(JWT_SECRET); // 使用密钥进行签名
+    .sign(secret); // 使用密钥进行签名
 }
 
 /**
@@ -56,8 +61,9 @@ export async function signJwt(payload: UserJwtPayload, expiresIn?: string): Prom
  * @returns 解码后的载荷 (UserJwtPayload)，如果验证失败则抛出 jose.errors.JWTInvalid 等错误
  */
 export async function verifyJwt(token: string, expectedAudience?: string): Promise<UserJwtPayload> {
+  const secret = await getJwtSecret();
   // 验证 JWT 的签名、过期时间、签发者和受众
-  const { payload } = await jose.jwtVerify(token, JWT_SECRET, {
+  const { payload } = await jose.jwtVerify(token, secret, {
     algorithms: [JWT_ALG], // 验证签名算法
     issuer: 'itangbao-auth', // 验证签发者
     audience: expectedAudience, // 如果提供了期望的受众，则验证受众

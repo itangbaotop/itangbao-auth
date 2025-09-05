@@ -36,7 +36,9 @@ export async function POST(request: NextRequest) {
     });
 
     // 发送邮件
-    const baseUrl = process.env.NEXTAUTH_URL || `https://${request.headers.get('host')}`;
+    const host = request.headers.get('host');
+    const protocol = host?.includes('localhost') ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
     await sendMagicLinkEmail(email, token, baseUrl);
 
     return NextResponse.json({ 

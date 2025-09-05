@@ -1,5 +1,6 @@
 // src/lib/magic-link.ts
 import { nanoid } from "nanoid"
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export const runtime = "edge"
 
@@ -20,16 +21,21 @@ export async function sendMagicLinkEmail(email: string, token: string, baseUrl: 
   const { host } = new URL(baseUrl)
 
   try {
+    const { env } = await getCloudflareContext();
+    const RESEND_API_KEY = env.RESEND_API_KEY as string | undefined;
+    const SENDGRID_API_KEY = env.SENDGRID_API_KEY as string | undefined;
+    const EMAIL_FROM = env.EMAIL_FROM as string | undefined;
+
     // 使用 Resend 发送邮件
-    if (process.env.RESEND_API_KEY) {
+    if (RESEND_API_KEY) {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Authorization': `Bearer ${RESEND_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: process.env.EMAIL_FROM!,
+          from: EMAIL_FROM!,
           to: email,
           subject: `登录到 ${host}`,
           html: `
@@ -96,11 +102,11 @@ export async function sendMagicLinkEmail(email: string, token: string, baseUrl: 
       return true
     }
     // 使用 SendGrid
-    else if (process.env.SENDGRID_API_KEY) {
+    else if (SENDGRID_API_KEY) {
       const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+          'Authorization': `Bearer ${SENDGRID_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -108,7 +114,7 @@ export async function sendMagicLinkEmail(email: string, token: string, baseUrl: 
             to: [{ email }],
             subject: `登录到 ${host}`,
           }],
-          from: { email: process.env.EMAIL_FROM! },
+          from: { email: EMAIL_FROM! },
           content: [
             {
               type: 'text/plain',

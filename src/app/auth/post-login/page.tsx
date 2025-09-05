@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/hooks/useToast';
 import { ToastContainer } from '@/components/ToastContainer';
-import { verifyJwt } from '@/lib/jwt'; // 导入你的 JWT 验证函数
+import { verifyJwt } from '@/lib/utils/jwt'; // 导入你的 JWT 验证函数
 
 export default function PostLoginPage() {
   const router = useRouter();
@@ -17,8 +17,8 @@ export default function PostLoginPage() {
   useEffect(() => {
     if (status === 'loading') return; // 等待会话加载
 
-    const appId = searchParams.get('appId');
-    const redirectUri = searchParams.get('redirectUri');
+    const appId = searchParams.get('appId') || searchParams.get('client_id');
+    const redirectUri = searchParams.get('redirectUri') || searchParams.get('redirect_uri');
     const token = searchParams.get('token'); // Auth.js 可能会将 token 直接放在这里
 
     // 调试日志
