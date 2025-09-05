@@ -2,55 +2,22 @@
 "use client";
 
 import { getSession, signIn } from "next-auth/react";
-import { useEffect, useRef, useState, useCallback  } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/useToast";
 import { ToastContainer } from "@/components/ToastContainer";
 import { useAuthProviders } from "@/contexts/AuthProvidersContext";
 import { useAuthConfig } from "@/hooks/useAuthConfig";
 import { useRouter } from "next/navigation";
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { I18nProvider } from "@/contexts/I18nProvider";
 
-
-// 声明 Google 的全局类型，避免 TypeScript 报错
-declare global {
-  namespace google {
-    namespace accounts {
-      namespace id {
-        function initialize(options: {
-          client_id: string;
-          callback: (response: { credential?: string; select_by?: string; }) => void;
-          auto_select?: boolean;
-          cancel_on_tap_outside?: boolean;
-          prompt_parent_id?: string;
-          itp_support?: boolean;
-          ux_mode?: string;
-        }): void;
-        function renderButton(
-          parent: HTMLElement | null,
-          options: {
-            type?: string;
-            size?: string;
-            text?: string;
-            shape?: string;
-            theme?: string;
-            locale?: string;
-            width?: string;
-            logo_alignment?: string;
-            click_listener?: () => void;
-          }
-        ): void;
-        function prompt(callback?: (notification: any) => void): void;
-      }
-    }
-  }
-}
-
-
-
-export default function SignInPage() {
+function SignInPageContent() {
+  const { t } = useTranslation(['auth', 'common']);
   const { providers, isLoading: providersLoading, error: providersError } = useAuthProviders();
   const { config, isLoading: configLoading } = useAuthConfig();
-  const [loadingProviderId, setLoadingProviderId] = useState<string | null>(null); 
+  const [loadingProviderId, setLoadingProviderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const searchParams = useSearchParams();
@@ -59,7 +26,7 @@ export default function SignInPage() {
 
   const oneTapInitialized = useRef(false);
 
-  // 获取原始 OAuth 参数
+  // OAuth 参数获取
   const originalClientId = searchParams.get('client_id');
   const originalRedirectUri = searchParams.get('redirect_uri');
   const originalResponseType = searchParams.get('response_type');
@@ -67,8 +34,6 @@ export default function SignInPage() {
   const originalCodeChallenge = searchParams.get('code_challenge');
   const originalCodeChallengeMethod = searchParams.get('code_challenge_method');
 
-  // 构建登录成功后重定向到 /auth/authorize 的 URL
-  // 确保在客户端环境才访问 window.location.origin
   const [authorizeRedirectUrl, setAuthorizeRedirectUrl] = useState<URL | null>(null);
 
   useEffect(() => {
@@ -81,154 +46,49 @@ export default function SignInPage() {
       if (originalCodeChallenge) url.searchParams.set('code_challenge', originalCodeChallenge);
       if (originalCodeChallengeMethod) url.searchParams.set('code_challenge_method', originalCodeChallengeMethod);
       setAuthorizeRedirectUrl(url);
-      console.log("authorizeRedirectUrl initialized:", url.toString());
     }
   }, [
-    authorizeRedirectUrl, originalClientId, originalRedirectUri, originalResponseType, 
+    authorizeRedirectUrl, originalClientId, originalRedirectUri, originalResponseType,
     originalState, originalCodeChallenge, originalCodeChallengeMethod
   ]);
 
-
   const handleSuccessfulLoginRedirect = useCallback(async () => {
-    // 确保 authorizeRedirectUrl 已经可用
     if (!authorizeRedirectUrl) {
       console.error("handleSuccessfulLoginRedirect: authorizeRedirectUrl is null, cannot redirect.");
-      toast.error("跳转失败", "认证服务配置错误，请联系管理员。");
-      router.replace("/profile"); // 回退到默认页面
+      toast.error(t('auth:errors.loginFailed'), t('auth:errors.default'));
+      router.replace("/profile");
       return;
     }
 
-    const session = await getSession(); // 获取最新会话
+    const session = await getSession();
     console.log("handleSuccessfulLoginRedirect: After signIn, getSession returned:", session);
 
     if (session?.user?.role === "admin") {
       console.log("handleSuccessfulLoginRedirect: Redirecting to /admin");
       router.replace("/admin");
-    } else if (originalClientId && originalRedirectUri) { // 确保有 OAuth 参数
+    } else if (originalClientId && originalRedirectUri) {
       console.log("handleSuccessfulLoginRedirect: Redirecting to /auth/authorize:", authorizeRedirectUrl.toString());
       router.replace(authorizeRedirectUrl.toString());
     } else {
       console.log("handleSuccessfulLoginRedirect: Redirecting to /profile (default)");
-      router.replace("/profile"); // 普通用户默认跳转到个人资料页
+      router.replace("/profile");
     }
   }, [
-    router, getSession, originalClientId, originalRedirectUri, authorizeRedirectUrl, toast
+    router, getSession, originalClientId, originalRedirectUri, authorizeRedirectUrl, toast, t
   ]);
-
-  // useEffect(() => {
-  //   console.log("One Tap useEffect: Checking conditions...");
-  //   console.log("configLoading:", configLoading, "config?.enableGoogleLogin:", config?.enableGoogleLogin, "typeof google:", typeof google);
-  //   console.log("oneTapInitialized.current:", oneTapInitialized.current);
-
-  //   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-
-  //   if (!googleClientId) {
-  //     console.error("NEXT_PUBLIC_GOOGLE_CLIENT_ID 未定义，无法初始化 Google One Tap。");
-  //     return;
-  //   }
-
-  //   if (!configLoading && config?.enableGoogleLogin && typeof google !== 'undefined' && !oneTapInitialized.current) {
-  //     console.log("Initializing Google One Tap with Client ID:", googleClientId);
-
-  //     try {
-  //       google.accounts.id.initialize({
-  //         client_id: googleClientId,
-  //         callback: async (response) => {
-  //           console.log("Google One Tap Callback received:", response);
-  //           if (response.credential) {
-  //             setLoadingProviderId("google-one-tap");
-  //             toast.info("Google One Tap 凭据已接收", "正在处理登录...");
-  //             try {
-  //               const result = await signIn('google-one-tap-credentials', {
-  //                 id_token: response.credential,
-  //                 redirect: false,
-  //               });
-
-  //               console.log("Auth.js signIn result for One Tap:", result);
-
-  //               if (result?.error) {
-  //                 toast.error("Google One Tap 登录失败", result.error);
-  //               } else if (result?.ok) {
-  //                 toast.success("Google One Tap 登录成功", "正在跳转...");
-  //                 const session = await getSession(); // 获取最新会话
-                  
-  //                  setTimeout(() => {
-  //                     handleSuccessfulLoginRedirect();
-  //                 }, 500);
-  //               }
-  //             } catch (error) {
-  //               console.error("处理 Google One Tap 凭据时发生错误:", error);
-  //               toast.error("Google One Tap 登录失败", "处理凭据时出现错误");
-  //             } finally {
-  //               setLoadingProviderId(null);
-  //             }
-  //           } else {
-  //             console.warn("Google One Tap Callback: 未收到凭据。");
-  //           }
-  //         },
-  //         auto_select: true,
-  //         cancel_on_tap_outside: false,
-  //         itp_support: true,
-  //       });
-
-  //       console.log("Calling google.accounts.id.prompt()...");
-  //       google.accounts.id.prompt((notification: any) => {
-  //         console.log("Google One Tap Prompt Notification:", notification);
-  //         // ... (通知处理)
-  //       });
-  //       oneTapInitialized.current = true;
-  //     } catch (e) {
-  //       console.error("Google One Tap 初始化失败:", e);
-  //       toast.error("Google One Tap 初始化失败", "请检查控制台错误。");
-  //     }
-  //   }
-  //   return () => {
-  //     if (typeof google !== 'undefined' && oneTapInitialized.current) {
-  //       console.log("Canceling Google One Tap prompt on component unmount.");
-  //       google.accounts.id.cancel();
-  //       oneTapInitialized.current = false;
-  //     }
-  //   };
-  // }, [configLoading, config?.enableGoogleLogin, providers, toast, router, authorizeRedirectUrl, originalClientId, originalRedirectUri]);
-
-
-
 
   // 处理错误信息
   useEffect(() => {
     const error = searchParams.get("error");
     if (error) {
-      let errorMessage = "登录失败";
-      switch (error) {
-        case "EmailSignin":
-          errorMessage = "发送邮件失败，请重试";
-          break;
-        case "OAuthSignin":
-        case "OAuthCallback":
-        case "OAuthCreateAccount":
-        case "EmailCreateAccount":
-          errorMessage = "第三方登录失败，请重试";
-          break;
-        case "Callback":
-          errorMessage = "登录回调失败";
-          break;
-        case "OAuthAccountNotLinked":
-          errorMessage = "该邮箱已被其他登录方式使用";
-          break;
-        case "Verification":
-          errorMessage = "验证链接无效或已过期";
-          break;
-        default:
-          errorMessage = "登录过程中出现错误";
-      }
-      toast.error("登录失败", errorMessage);
+      const errorMessage = t(`auth:errors.\${error}`, { defaultValue: t('auth:errors.default') });
+      toast.error(t('auth:errors.loginFailed'), errorMessage);
       
-      // 清除 URL 中的错误参数
       const url = new URL(window.location.href);
       url.searchParams.delete("error");
       window.history.replaceState({}, "", url.toString());
     }
-  }, [searchParams, toast]);
+  }, [searchParams, toast, t]);
 
   const handleOAuthSignIn = async (providerId: string) => {
     console.log("Starting OAuth sign-in with provider:", providerId);
@@ -246,35 +106,33 @@ export default function SignInPage() {
         callbackUrl = url.toString();
       }
       if (!callbackUrl) {
-        toast.error('缺少 OAuth 参数', '无法构建回调地址');
+        toast.error(t('auth:errors.loginFailed'), t('auth:errors.default'));
         return;
       }
-      // 让 NextAuth 执行完整的 OAuth 跳转与回调，并在回调后重定向到我们带参的 /api/auth/authorize
+      
       await signIn(providerId, {
         callbackUrl,
         redirect: true,
       });
-      // 上面会触发浏览器跳转，这里的代码通常不会再继续执行
     } catch (error) {
-      console.log("登陆失败报错：", error)
-      toast.error("登录失败", "第三方登录出现错误，请重试");
+      console.log("登陆失败报错：", error);
+      toast.error(t('auth:errors.loginFailed'), t('auth:errors.networkError'));
     } finally {
       setLoadingProviderId(null);
     }
   };
 
-
   const handleContinueWithEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email) {
-      toast.error("请输入邮箱", "邮箱地址不能为空");
+      toast.error(t('auth:errors.emailRequired'), t('auth:errors.emailEmpty'));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error("邮箱格式错误", "请输入有效的邮箱地址");
+      toast.error(t('auth:errors.emailInvalid'), t('auth:errors.emailInvalidDesc'));
       return;
     }
 
@@ -283,13 +141,13 @@ export default function SignInPage() {
       const response = await fetch("/api/auth/send-magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }), 
+        body: JSON.stringify({ email }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        toast.success("发送成功", data.message);
-        // 跳转到 verify-request 页面时，带上 OAuth 参数
+        toast.success(t('auth:success.sendSuccess'), data.message);
+        
         const verifyRequestUrl = new URL(`/auth/verify-request`, window.location.origin);
         verifyRequestUrl.searchParams.set('email', encodeURIComponent(email));
         if (originalClientId) verifyRequestUrl.searchParams.set('client_id', originalClientId);
@@ -299,13 +157,13 @@ export default function SignInPage() {
         if (originalCodeChallenge) verifyRequestUrl.searchParams.set('code_challenge', originalCodeChallenge);
         if (originalCodeChallengeMethod) verifyRequestUrl.searchParams.set('code_challenge_method', originalCodeChallengeMethod);
         
-        window.location.href = verifyRequestUrl.toString(); // 直接跳转
+        window.location.href = verifyRequestUrl.toString();
       } else {
         const errorData = await response.json();
-        toast.error("发送失败", errorData.error);
+        toast.error(t('auth:errors.sendFailed'), errorData.error);
       }
     } catch (error) {
-      toast.error("发送失败", "网络错误，请重试");
+      toast.error(t('auth:errors.sendFailed'), t('auth:errors.networkError'));
     } finally {
       setLoadingProviderId(null);
     }
@@ -315,9 +173,9 @@ export default function SignInPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center p-8 bg-white rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">认证请求无效</h1>
-          <p className="text-gray-700">请通过客户端应用发起登录请求。</p>
-          <a href="/" className="mt-4 inline-block text-blue-500 hover:underline">返回主页</a>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">{t('auth:invalidRequest')}</h1>
+          <p className="text-gray-700">{t('auth:invalidRequestDesc')}</p>
+          <a href="/" className="mt-4 inline-block text-blue-500 hover:underline">{t('auth:returnHome')}</a>
         </div>
       </div>
     );
@@ -366,7 +224,7 @@ export default function SignInPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">加载中...</p>
+          <p className="text-gray-600">{t('common:loading')}</p>
         </div>
       </div>
     );
@@ -382,7 +240,7 @@ export default function SignInPage() {
             onClick={() => window.location.reload()}
             className="bg-blue-600 text-white px-4 py-2 rounded"
           >
-            重新加载
+            {t('common:retry')}
           </button>
         </div>
       </div>
@@ -395,6 +253,11 @@ export default function SignInPage() {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        {/* 语言切换器 */}
+        <div className="absolute top-4 right-4">
+          <LanguageSwitcher />
+        </div>
+
         <div className="max-w-md w-full space-y-8">
           {/* Logo和标题 */}
           <div className="text-center">
@@ -404,20 +267,19 @@ export default function SignInPage() {
               </svg>
             </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              欢迎使用
+              {t('auth:title')}
             </h2>
             <p className="text-gray-600">
-              安全便捷的登录体验，新用户将自动创建账户
+              {t('auth:subtitle')}
             </p>
           </div>
 
           <div className="bg-white py-8 px-6 shadow-xl rounded-2xl">
-
             {/* Google One Tap 加载状态提示 */}
             {loadingProviderId === "google-one-tap" && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg flex items-center justify-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span>Google One Tap 登录中...</span>
+                <span>Google One Tap {t('auth:success.redirecting')}</span>
               </div>
             )}
 
@@ -442,7 +304,7 @@ export default function SignInPage() {
                     ) : (
                       <>
                         {getProviderIcon(provider.id)}
-                        <span className="ml-3">使用 {provider.name} 登录</span>
+                        <span className="ml-3">{t('auth:signInWith', { provider: provider.name })}</span>
                       </>
                     )}
                   </button>
@@ -458,7 +320,7 @@ export default function SignInPage() {
                     <div className="w-full border-t border-gray-200" />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white text-gray-500">或</span>
+                    <span className="px-4 bg-white text-gray-500">{t('auth:or')}</span>
                   </div>
                 </div>
               </div>
@@ -469,7 +331,7 @@ export default function SignInPage() {
               <form onSubmit={handleContinueWithEmail} className="space-y-6">
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    邮箱地址
+                    {t('auth:emailAddress')}
                   </label>
                   <input
                     id="email"
@@ -480,7 +342,7 @@ export default function SignInPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-base"
-                    placeholder="输入您的邮箱地址"
+                    placeholder={t('auth:emailPlaceholder')}
                   />
                 </div>
 
@@ -492,14 +354,14 @@ export default function SignInPage() {
                   {loadingProviderId === "magic-link-email" ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                      <span>发送中...</span>
+                      <span>{t('auth:sending')}</span>
                     </>
                   ) : (
                     <>
                       <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
-                      <span>继续</span>
+                      <span>{t('auth:continueWithEmail')}</span>
                     </>
                   )}
                 </button>
@@ -514,30 +376,24 @@ export default function SignInPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
                 </div>
-                <p className="text-gray-500">暂无可用的登录方式</p>
-                <p className="text-xs text-gray-400 mt-2">请联系管理员配置登录方式</p>
+                <p className="text-gray-500">{t('auth:noAuthMethods')}</p>
+                <p className="text-xs text-gray-400 mt-2">{t('auth:contactAdmin')}</p>
               </div>
             )}
           </div>
-
-          {/* 底部信息
-          <div className="text-center">
-            <p className="text-xs text-gray-500">
-              点击继续即表示您同意我们的{" "}
-              <a href="#" className="text-blue-600 hover:text-blue-500 underline">
-                服务条款
-              </a>{" "}
-              和{" "}
-              <a href="#" className="text-blue-600 hover:text-blue-500 underline">
-                隐私政策
-              </a>
-            </p>
-          </div> */}
         </div>
       </div>
 
       {/* 通知容器 */}
       <ToastContainer toasts={toasts} onRemoveToast={removeToast} />
     </>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <I18nProvider>
+      <SignInPageContent />
+    </I18nProvider>
   );
 }

@@ -1,0 +1,33 @@
+{
+  "title": "Profile",
+  "subtitle": "Manage your account information and preferences",
+  "basicInfo": "Basic Information",
+  "username": "Username",
+  "email": "Email Address",
+  "notSet": "Not set",
+  "emailVerification": "Email Verification Status",
+  "verified": "Verified",
+  "unverified": "Unverified",
+  "loginMethods": "Login Methods",
+  "loginMethodsDesc": "You can use the following methods to login to this account",
+  "connected": "Connected",
+  "oauthLogin": "OAuth Login",
+  "credentialLogin": "Credential Login",
+  "noLoginMethods": "No login method information found",
+  "quickActions": "Quick Actions",
+  "logout": "Logout",
+  "accountSecurity": "Account Security",
+  "twoFactor": "Two-Factor Authentication",
+  "twoFactorDesc": "Enhance account security",
+  "loginActivity": "Login Activity",
+  "loginActivityDesc": "View recent login records",
+  "notEnabled": "Not enabled",
+  "normal": "Normal",
+  "providers": {
+    "GitHub": "GitHub",
+    "Google": "Google",
+    "email": "Email",
+    "admin-credentials": "Admin Account"
+  },
+  "unknown": "Unknown"
+}

@@ -1,0 +1,33 @@
+{
+  "title": "个人资料",
+  "subtitle": "管理您的账户信息和偏好设置",
+  "basicInfo": "基本信息",
+  "username": "用户名",
+  "email": "邮箱地址",
+  "notSet": "未设置",
+  "emailVerification": "邮箱验证状态",
+  "verified": "已验证",
+  "unverified": "未验证",
+  "loginMethods": "登录方式",
+  "loginMethodsDesc": "您可以使用以下方式登录此账户",
+  "connected": "已连接",
+  "oauthLogin": "OAuth 登录",
+  "credentialLogin": "凭据登录",
+  "noLoginMethods": "未找到登录方式信息",
+  "quickActions": "快速操作",
+  "logout": "退出登录",
+  "accountSecurity": "账户安全",
+  "twoFactor": "双因素认证",
+  "twoFactorDesc": "增强账户安全性",
+  "loginActivity": "登录活动",
+  "loginActivityDesc": "查看最近登录记录",
+  "notEnabled": "未启用",
+  "normal": "正常",
+  "providers": {
+    "GitHub": "GitHub",
+    "Google": "Google",
+    "email": "邮箱",
+    "admin-credentials": "管理员账户"
+  },
+  "unknown": "未知"
+}

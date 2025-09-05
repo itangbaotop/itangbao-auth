@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  i18n: {
+    locales: ['zh', 'en'],
+    defaultLocale: 'zh',
+    localeDetection: false, // 禁用自动语言检测，使用我们的自定义检测
+  },
 };
 
 export default nextConfig;
