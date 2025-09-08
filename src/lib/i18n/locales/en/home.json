@@ -1,0 +1,122 @@
+{
+  "brand": "AuthHub",
+  "opensource": "Open Source",
+  "demo": "Live Demo",
+  "nav": {
+    "features": "Features",
+    "docs": "Docs",
+    "community": "Community"
+  },
+  "hero": {
+    "badge": "Open Source & Free",
+    "title1": "Open Source",
+    "title2": "Authentication Service",
+    "subtitle": "Provide secure, fast, and easy-to-use authentication solutions for your applications. Completely open source, free to use, supporting multiple login methods.",
+    "cta": {
+      "github": "View Source",
+      "demo": "Live Demo"
+    }
+  },
+  "stats": {
+    "uptime": "Uptime",
+    "responseTime": "Response Time",
+    "license": "Open License",
+    "free": "Free to Use"
+  },
+  "quickStart": {
+    "title": "Quick Start",
+    "subtitle": "Add authentication to your app in just a few simple steps",
+    "step1": {
+      "title": "1. Clone Project",
+      "desc": "Clone the project from GitHub to local"
+    },
+    "step2": {
+      "title": "2. Configure Environment",
+      "desc": "Configure environment variables and database"
+    },
+    "step3": {
+      "title": "3. Start Service",
+      "desc": "Start the development server"
+    }
+  },
+  "loginSection": {
+    "title": "Multiple Login Methods",
+    "subtitle": "Provide convenient login options for users, enhance user experience"
+  },
+  "loginMethods": {
+    "google": "Quick login with Google account",
+    "github": "Developer's preferred login method",
+    "emailName": "Email",
+    "email": "Passwordless, secure magic link login"
+  },
+  "featuresSection": {
+    "title": "Powerful Features",
+    "subtitle": "Open source and free authentication solution that meets various business needs"
+  },
+  "features": {
+    "security": {
+      "title": "Enterprise Security",
+      "desc": "Adopt the latest security standards to protect your data"
+    },
+    "fast": {
+      "title": "Quick Deployment",
+      "desc": "Deploy in minutes, ready to use out of the box"
+    },
+    "multiProvider": {
+      "title": "Multiple Login Methods",
+      "desc": "Support Google, GitHub, email and other login methods"
+    },
+    "international": {
+      "title": "Internationalization",
+      "desc": "Support multiple languages, covering global users"
+    },
+    "opensource": {
+      "title": "Completely Open Source",
+      "desc": "MIT license, free to use and modify"
+    },
+    "customizable": {
+      "title": "Highly Customizable",
+      "desc": "Flexible configuration options to meet different needs"
+    }
+  },
+  "community": {
+    "title": "Join Community",
+    "subtitle": "Work with the developer community to improve this open source project together",
+    "contribute": {
+      "title": "How to Contribute",
+      "code": "Code Contribution",
+      "codeDesc": "Submit Pull Requests, fix bugs or add new features",
+      "docs": "Documentation",
+      "docsDesc": "Help improve documentation to make the project easier to use",
+      "issues": "Issue Reporting",
+      "issuesDesc": "Report bugs or suggest features"
+    },
+    "github": {
+      "title": "Follow Us on GitHub",
+      "desc": "Get latest updates and participate in discussions",
+      "star": "Star",
+      "fork": "Fork"
+    }
+  },
+  "cta": {
+    "title": "Ready to Get Started?",
+    "subtitle": "Deploy our open source authentication service now to provide users with secure and convenient login experience",
+    "primary": "Get Started",
+    "secondary": "Live Demo"
+  },
+  "footer": {
+    "description": "Modern, open source and free authentication solution, built for developers.",
+    "project": "Project",
+    "github": "GitHub",
+    "features": "Features",
+    "docs": "Documentation",
+    "demo": "Live Demo",
+    "community": "Community",
+    "issues": "Issues",
+    "discussions": "Discussions",
+    "contributing": "Contributing",
+    "license": "MIT License open source project.",
+    "privacy": "Privacy Policy",
+    "conduct": "Code of Conduct"
+  }
+}

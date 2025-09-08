@@ -1,0 +1,122 @@
+{
+  "brand": "AuthHub",
+  "opensource": "开源",
+  "demo": "在线演示",
+  "nav": {
+    "features": "功能特性",
+    "docs": "文档",
+    "community": "社区"
+  },
+  "hero": {
+    "badge": "开源免费",
+    "title1": "开源的",
+    "title2": "身份认证服务",
+    "subtitle": "为您的应用提供安全、快速、易用的身份认证解决方案。完全开源，免费使用，支持多种登录方式。",
+    "cta": {
+      "github": "查看源码",
+      "demo": "在线演示"
+    }
+  },
+  "stats": {
+    "uptime": "服务可用性",
+    "responseTime": "响应时间",
+    "license": "开源许可证",
+    "free": "免费使用"
+  },
+  "quickStart": {
+    "title": "快速开始",
+    "subtitle": "几个简单步骤，即可为您的应用添加身份认证功能",
+    "step1": {
+      "title": "1. 克隆项目",
+      "desc": "从 GitHub 克隆项目到本地"
+    },
+    "step2": {
+      "title": "2. 配置环境",
+      "desc": "配置环境变量和数据库"
+    },
+    "step3": {
+      "title": "3. 启动服务",
+      "desc": "启动开发服务器"
+    }
+  },
+  "loginSection": {
+    "title": "支持多种登录方式",
+    "subtitle": "为用户提供便捷的登录选择，提升用户体验"
+  },
+  "loginMethods": {
+    "google": "使用 Google 账户快速登录",
+    "github": "开发者首选的登录方式",
+    "emailName": "邮箱",
+    "email": "无需密码，安全的魔法链接登录"
+  },
+  "featuresSection": {
+    "title": "强大的功能特性",
+    "subtitle": "开源免费的身份认证解决方案，满足各种业务需求"
+  },
+  "features": {
+    "security": {
+      "title": "企业级安全",
+      "desc": "采用最新的安全标准，保护您的数据安全"
+    },
+    "fast": {
+      "title": "快速部署",
+      "desc": "几分钟内即可部署完成，开箱即用"
+    },
+    "multiProvider": {
+      "title": "多种登录方式",
+      "desc": "支持 Google、GitHub、邮箱等多种登录方式"
+    },
+    "international": {
+      "title": "国际化支持",
+      "desc": "支持多语言，覆盖全球用户"
+    },
+    "opensource": {
+      "title": "完全开源",
+      "desc": "MIT 许可证，免费使用和修改"
+    },
+    "customizable": {
+      "title": "高度可定制",
+      "desc": "灵活的配置选项，满足不同需求"
+    }
+  },
+  "community": {
+    "title": "加入社区",
+    "subtitle": "与开发者社区一起，共同完善这个开源项目",
+    "contribute": {
+      "title": "如何贡献",
+      "code": "代码贡献",
+      "codeDesc": "提交 Pull Request，修复 Bug 或添加新功能",
+      "docs": "文档完善",
+      "docsDesc": "帮助完善文档，让项目更易使用",
+      "issues": "问题反馈",
+      "issuesDesc": "报告 Bug 或提出功能建议"
+    },
+    "github": {
+      "title": "在 GitHub 上关注我们",
+      "desc": "获取最新更新，参与讨论",
+      "star": "Star",
+      "fork": "Fork"
+    }
+  },
+  "cta": {
+    "title": "准备开始了吗？",
+    "subtitle": "立即部署我们的开源认证服务，为您的用户提供安全便捷的登录体验",
+    "primary": "开始使用",
+    "secondary": "在线演示"
+  },
+  "footer": {
+    "description": "开源免费的现代化身份认证解决方案，为开发者而生。",
+    "project": "项目",
+    "github": "GitHub",
+    "features": "功能特性",
+    "docs": "使用文档",
+    "demo": "在线演示",
+    "community": "社区",
+    "issues": "问题反馈",
+    "discussions": "讨论",
+    "contributing": "贡献指南",
+    "license": "MIT 许可证开源项目。",
+    "privacy": "隐私政策",
+    "conduct": "行为准则"
+  }
+}

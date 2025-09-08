@@ -1,44 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AuthHub - 开源身份认证服务
 
-## Getting Started
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+[![GitHub stars](https://img.shields.io/github/stars/your-username/authhub.svg)](https://github.com/your-username/authhub/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/your-username/authhub.svg)](https://github.com/your-username/authhub/network)
 
-First, run the development server:
+现代化、安全、易用的开源身份认证解决方案，支持多种登录方式，几分钟内完成集成。
+
+## ✨ 特性
+
+- 🔐 **企业级安全** - 采用最新的安全标准，保护您的数据安全
+- ⚡ **快速部署** - 几分钟内即可部署完成，开箱即用
+- 🌐 **多种登录方式** - 支持 Google、GitHub、邮箱等多种登录方式
+- 🌍 **国际化支持** - 支持多语言，覆盖全球用户
+- 📱 **响应式设计** - 完美适配桌面端和移动端
+- 🎨 **高度可定制** - 灵活的配置选项，满足不同需求
+
+## 🚀 快速开始
+
+### 1. 克隆项目
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/your-username/authhub.git
+cd authhub
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. 配置环境变量
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+编辑 .env.local 文件，配置必要的环境变量：
 
-## Learn More
+```env
+# 数据库配置
+DATABASE_URL="your-database-url"
 
-To learn more about Next.js, take a look at the following resources:
+# NextAuth 配置
+NEXTAUTH_SECRET="your-secret-key"
+NEXTAUTH_URL="http://localhost:3000"
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Google OAuth (可选)
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# GitHub OAuth (可选)
+GITHUB_CLIENT_ID="your-github-client-id"
+GITHUB_CLIENT_SECRET="your-github-client-secret"
+```
 
-## Deploy on Vercel
+3. 启动开发服务器
+4. 
+```bash
+npm run dev
+```     
+访问 http://localhost:3000 查看结果。
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
+📞 联系我们
+GitHub Issues: https://github.com/your-username/authhub/issues
+GitHub Discussions: https://github.com/your-username/authhub/discussions
+⭐ 如果这个项目对您有帮助，请给我们一个 Star！
 
 todo
-- [ ] Google一键登录成功
-- [-] app的登录和回调流程
-- [ ] 登陆页面和 资料页面 支持中英文切换
-- [-] 增加刷新token机制
+- [ ] 增加google一键登录
+- [ ] 增加深色模式
 
